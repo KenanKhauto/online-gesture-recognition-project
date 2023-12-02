@@ -66,7 +66,7 @@ class GestureDataset(Dataset):
         frames = np.array(frames)  # to avoid the overhead of PyTorch handling individual array conversions within the list
         return torch.tensor(frames), id, label
 
-    def load_frames(self, folder_name, start, end):
+    def load_frames(self, folder_name, start, end, fixed_frame_count=142):
         """
         Load and return frames from the specified folder, between start and end frames.
 
@@ -78,11 +78,18 @@ class GestureDataset(Dataset):
 
         frames = []
         folder_path = os.path.join(self.frame_folders, folder_name)
-        for frame_idx in range(start, end + 1):
+        total_frames = end - start + 1
+        step = max(1, total_frames // fixed_frame_count)
+        for frame_idx in range(start, end + 1, step):  # skip frames if more than fixed frame count
             frame_path = os.path.join(folder_path, f"{folder_name}_{str(frame_idx).zfill(6)}.jpg")
             frame = cv2.imread(frame_path)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert to RGB
             frames.append(frame)
+            if len(frames) == fixed_frame_count:
+                break
+
+        while len(frames) < fixed_frame_count:
+            frames.append(frames[-1])  # apply padding to gestures with smaller frames number
         return frames
 
 
@@ -94,13 +101,13 @@ if __name__ == "__main__":
     # frames = dataset.load_frames(test_sample[0], test_sample[1], test_sample[2])
 
 
-    frames_tensor = dataset[1][0]
+    frames_tensor = dataset[4][0]
     h = frames_tensor.shape[1]
     w = frames_tensor.shape[2]
 
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
     # out = cv2.VideoWriter("output.avi", fourcc, 20.0, (w, h))
-
+    print(frames_tensor.shape[0])
     for i in range(frames_tensor.shape[0]):
         frame = frames_tensor[i].numpy()
         # print(f"shape of frame {i}: {frame.shape}")

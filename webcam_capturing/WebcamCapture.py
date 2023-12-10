@@ -5,7 +5,7 @@ import time
 
 
 class WebcamCapture:
-    def __init__(self, frame_count=142, target_fps=30):
+    def __init__(self, frame_count=142, target_fps=30, width=640, height=480):
         """
         Initialize the WebcamCapture class.
 
@@ -17,6 +17,8 @@ class WebcamCapture:
         self.frame_count = frame_count
         self.target_fps = target_fps
         self.frame_interval = 1 / target_fps
+        self.width = width
+        self.height = height
 
     def _process_and_save_frames(self, frames):
         """
@@ -41,7 +43,7 @@ class WebcamCapture:
         start = time.time()
 
         for _ in range(num_frames):
-            ret, frame = cap.read()
+            ret, _ = cap.read()
             if not ret:
                 break
 
@@ -61,6 +63,9 @@ class WebcamCapture:
         if not cap.isOpened():
             print("Error: Could not open webcam.")
             return None
+
+        # cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
 
         cap.set(cv2.CAP_PROP_FPS, self.target_fps)
 

@@ -47,34 +47,42 @@ def capture_and_process_video(frame_count=142):
     frames = []
     last_time = time.time()
 
+    frame_interval = 1 / target_fps
+    frames = []
+    last_frame_time = time.time()
+
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Can't receive frame. Exiting ...")
-            break
+        current_time = time.time()
+        if current_time - last_frame_time >= frame_interval:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error: Can't receive frame. Exiting ...")
+                break
 
-        cv2.imshow('Webcam Feed', frame)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            cv2.imshow('Webcam Feed', frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        frames.append(frame)
+            frames.append(frame)
 
-        if len(frames) > frame_count:
-            frames.pop(0)
+            if len(frames) > frame_count:
+                frames.pop(0)
 
-        if time.time() - last_time >= 1:
-            frames_to_process = frames[-frame_count:]
-            frames_tensor = torch.tensor(np.array(frames_to_process))
-            print("Tensor shape:", frames_tensor.shape)
+            last_frame_time = current_time
 
-            # Save some frames for inspection
-            cv2.imwrite("first_frame.jpg", cv2.cvtColor(frames_to_process[0], cv2.COLOR_RGB2BGR))
-            cv2.imwrite("middle_frame.jpg", cv2.cvtColor(frames_to_process[len(frames_to_process)//2], cv2.COLOR_RGB2BGR))
-            cv2.imwrite("last_frame.jpg", cv2.cvtColor(frames_to_process[-1], cv2.COLOR_RGB2BGR))
+            if time.time() - last_time >= 1:
+                frames_to_process = frames[-frame_count:]
+                frames_tensor = torch.tensor(np.array(frames_to_process))
+                print("Tensor shape:", frames_tensor.shape)
 
-            last_time = time.time()
+                # Save some frames for inspection
+                cv2.imwrite("first_frame.jpg", cv2.cvtColor(frames_to_process[0], cv2.COLOR_RGB2BGR))
+                cv2.imwrite("middle_frame.jpg", cv2.cvtColor(frames_to_process[len(frames_to_process)//2], cv2.COLOR_RGB2BGR))
+                cv2.imwrite("last_frame.jpg", cv2.cvtColor(frames_to_process[-1], cv2.COLOR_RGB2BGR))
 
-        if cv2.waitKey(1) == ord('q'):
-            break
+                last_time = time.time()
+
+            if cv2.waitKey(1) == ord('q'):
+                break
 
     cap.release()
     cv2.destroyAllWindows()

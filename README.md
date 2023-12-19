@@ -20,5 +20,5 @@ This project focuses on developing an online hand gesture recognition system. Ut
 Clone the repository and install the required dependencies:
 ```bash
 git clone https://github.com/KenanKhauto/online-gesture-recognition-project.git
-cd online-gesture-recognition
+cd online-gesture-recognition-project
 pip install -r requirements.txt

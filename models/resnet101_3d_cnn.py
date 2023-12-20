@@ -94,7 +94,7 @@ class ResNet3D(nn.Module):
         dropout_prob (float): Dropout probability.
     """
 
-    def __init__(self, block, layers, num_classes=14, use_dropout=False, dropout_prob=0.5):
+    def __init__(self, block, layers, num_classes=13, use_dropout=False, dropout_prob=0.5):
         super(ResNet3D, self).__init__()
         self.in_channels = 64
         self.use_dropout = use_dropout
@@ -171,8 +171,12 @@ class ResNet3D(nn.Module):
 
         return x
 
-if __name__ == "__main__":
+def get_resnet101_3d():
     model = ResNet3D(Bottleneck3D, [3, 4, 23, 3], use_dropout=True, dropout_prob=0.5)
+    return model
+
+if __name__ == "__main__":
+    model = get_resnet101_3d()
     with torch.no_grad():
         inputs = torch.randn((5, 3, 142, 32, 32))
         outputs = model(inputs)

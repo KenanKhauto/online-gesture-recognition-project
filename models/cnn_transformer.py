@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 import math
-from resnet101_2d_cnn import get_resnet101
+from .resnet101_2d_cnn import get_resnet101
 
 __author__ = "7592047, Kenan Khauto"
 
@@ -45,7 +45,7 @@ class CNNTransformerVariable(nn.Module):
         """
         batch_size, max_sequence_length, C, H, W = src.shape
 
-        src_mask = self._create_src_mask(src) 
+        src_mask = self._create_src_mask(src).float
 
         src = src.view(batch_size * max_sequence_length, C, H, W)
         src = self.cnn(src)
@@ -139,7 +139,7 @@ class ModifiedResNet(nn.Module):
         return x
     
 
-def get_resnet_transformer(feature_size, nhead, nhid, nlayers, num_classes = 14, dropout_prob = 0.5):
+def get_resnet_transformer(feature_size, nhead, nhid, nlayers, num_classes = 13, dropout_prob = 0.5):
     """
     returns the model that combines a transformer and a 2D resnet101
 

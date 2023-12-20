@@ -4,11 +4,12 @@ import math
 
 from torch.testing import assert_close
 
-from losses import (
+from .losses import (
     _type_2_maximum_likelihood_loss,
     _bayes_risk_for_cross_entropy_loss,
     _bayes_risk_for_sse_loss
 )
+
 
 class Test_EDL_SSE_Loss(unittest.TestCase):
 

@@ -61,12 +61,21 @@ class GestureDataset(Dataset):
         """
         folder_name, start, end, label, id, n_frames = self.labels[idx]
         frames = self.load_frames(folder_name, start, end)
-        if self.transform:
-            frames = self.transform(frames)
-        frames = np.array(frames)  # to avoid the overhead of PyTorch handling individual array conversions within the list
-        return torch.tensor(frames), id, label
+        
+        transformed_frames = []
+        for frame in frames:
+            if self.transform:
+                # Apply transform to each frame
+                transformed_frame = self.transform(frame)
+                transformed_frames.append(transformed_frame)
 
-    def load_frames(self, folder_name, start, end, fixed_frame_count=142):
+        # Stack the frames back into a single tensor
+        if self.transform:
+            frames_tensor = torch.stack(transformed_frames)
+            return frames_tensor, id, label
+        return np.array(frames), id, label
+
+    def load_frames(self, folder_name, start, end, fixed_frame_count=60):
         """
         Load and return frames from the specified folder, between start and end frames.
 
@@ -89,7 +98,7 @@ class GestureDataset(Dataset):
                 break
 
         while len(frames) < fixed_frame_count:
-            frames.append(frames[-1])  # apply padding to gestures with smaller frames number
+            frames.append(np.zeros_like(frames[0]))  # apply padding to gestures with smaller frames number
         return frames
 
 

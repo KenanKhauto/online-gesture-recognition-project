@@ -4,3 +4,5 @@
 edl_playground/data
 
 __pycache__/
+
+*.pt

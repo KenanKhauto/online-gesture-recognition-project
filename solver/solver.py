@@ -50,9 +50,12 @@ class Solver:
         self.model.train()
         for epoch in range(num_epochs):
             running_loss = 0.0
+            bn = 1
             for data in self.train_loader:
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
                 inputs = inputs.permute(0, 2, 1, 3, 4)
+                # print(labels)
+                
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
@@ -60,6 +63,9 @@ class Solver:
                 self.optimizer.step()
 
                 running_loss += loss.item()
+                print(f"Batch {bn} done!")
+                bn += 1
+                
             print(f'Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(self.train_loader)}')
 
     def test(self):

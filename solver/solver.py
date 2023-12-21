@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class Solver:
-    def __init__(self, model, train_loader, test_loader, criterion, optimizer, device):
+    def __init__(self, model, train_loader, test_loader, criterion, optimizer, device, cnn_trans = False):
         """
         Initialize the Solver with the required components.
 
@@ -21,6 +21,7 @@ class Solver:
         self.criterion = criterion
         self.optimizer = optimizer
         self.device = device
+        self.cnn_trans = cnn_trans
 
     def save(self, file_path):
         """
@@ -53,7 +54,9 @@ class Solver:
             bn = 1
             for data in self.train_loader:
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
-                inputs = inputs.permute(0, 2, 1, 3, 4)
+                
+                if not self.cnn_trans:
+                    inputs = inputs.permute(0, 2, 1, 3, 4)
                 # print(labels)
                 
                 self.optimizer.zero_grad()
@@ -78,6 +81,8 @@ class Solver:
         with torch.no_grad():
             for data in self.test_loader:
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
+                if not self.cnn_trans:
+                    inputs = inputs.permute(0, 2, 1, 3, 4)
                 outputs = self.model(inputs)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)

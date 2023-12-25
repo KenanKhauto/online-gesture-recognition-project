@@ -94,7 +94,7 @@ class ResNet3D(nn.Module):
         dropout_prob (float): Dropout probability.
     """
 
-    def __init__(self, block, layers, num_classes=13, use_dropout=False, dropout_prob=0.5):
+    def __init__(self, block, layers, num_classes=14, use_dropout=False, dropout_prob=0.5):
         super(ResNet3D, self).__init__()
         self.in_channels = 64
         self.use_dropout = use_dropout

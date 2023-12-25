@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 
 class GestureDataset(Dataset):
-    def __init__(self, frame_folders, label_file, transform=None):
+    def __init__(self, frame_folders, label_file, transform=None, sample_duration = 142):
         """
 
         Parameter:
@@ -23,6 +23,7 @@ class GestureDataset(Dataset):
         self.frame_folders = frame_folders
         self.labels = self.parse_labels(label_file)
         self.transform = transform
+        self.sample_duration = sample_duration
 
     def parse_labels(self, label_file):
         """
@@ -39,7 +40,7 @@ class GestureDataset(Dataset):
         with open(label_file, 'r') as file:
             for line in file:
                 folder_name, label, id, start, end, number_frames = line.split(",")
-                labels.append((folder_name, int(start), int(end), label, int(id), int(number_frames)))
+                labels.append((folder_name, int(start), int(end), label, int(id) - 1, int(number_frames)))
         return labels
 
     def get_labels(self):
@@ -75,7 +76,7 @@ class GestureDataset(Dataset):
             return frames_tensor, id, label
         return np.array(frames), id, label
 
-    def load_frames(self, folder_name, start, end, fixed_frame_count=60):
+    def load_frames(self, folder_name, start, end):
         """
         Load and return frames from the specified folder, between start and end frames.
 
@@ -88,16 +89,16 @@ class GestureDataset(Dataset):
         frames = []
         folder_path = os.path.join(self.frame_folders, folder_name)
         total_frames = end - start + 1
-        step = max(1, total_frames // fixed_frame_count)
+        step = max(1, total_frames // self.sample_duration)
         for frame_idx in range(start, end + 1, step):  # skip frames if more than fixed frame count
             frame_path = os.path.join(folder_path, f"{folder_name}_{str(frame_idx).zfill(6)}.jpg")
             frame = cv2.imread(frame_path)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert to RGB
             frames.append(frame)
-            if len(frames) == fixed_frame_count:
+            if len(frames) == self.sample_duration:
                 break
 
-        while len(frames) < fixed_frame_count:
+        while len(frames) < self.sample_duration:
             frames.append(np.zeros_like(frames[0]))  # apply padding to gestures with smaller frames number
         return frames
 

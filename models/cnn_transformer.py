@@ -45,7 +45,7 @@ class CNNTransformerVariable(nn.Module):
         """
         batch_size, max_sequence_length, C, H, W = src.shape
 
-        src_mask = self._create_src_mask(src).float
+        src_mask = self._create_src_mask(src)
 
         src = src.view(batch_size * max_sequence_length, C, H, W)
         src = self.cnn(src)
@@ -139,7 +139,7 @@ class ModifiedResNet(nn.Module):
         return x
     
 
-def get_resnet_transformer(feature_size, nhead, nhid, nlayers, num_classes = 13, dropout_prob = 0.5):
+def get_resnet_transformer(feature_size, nhead, nhid, nlayers, num_classes = 14, dropout_prob = 0.5):
     """
     returns the model that combines a transformer and a 2D resnet101
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     num_frames = 142  # Max number of frames
     height, width = 32, 32
     channels = 3
-    num_classes = 14  # Assuming 14 classes for classification
+    num_classes = 13  # Assuming 13 classes for classification
 
     # Simulate variable-length sequences
     # For simplicity, let's assume each sequence's length is randomly chosen
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         test_data[i, :seq_length] = torch.randn(seq_length, channels, height, width)  # Fill with random data
 
 
-    combo = CNNTransformerVariable(mod_cnn, 64, 16, 32, 6, 14)
+    combo = CNNTransformerVariable(mod_cnn, 64, 16, 32, 6, num_classes)
 
     with torch.no_grad():
         outputs = combo(test_data)

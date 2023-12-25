@@ -34,12 +34,25 @@ def run(epochs, scheduler, display_stats_plot, model, device, train_loader, test
         scheduler.step()
 
         if display_stats_plot:
-            with out:
+            if epoch == epochs:
+                out.close()
                 fig, axs = stats_plot(train_loss, train_acc, train_rejected_corrects, test_acc, test_rejected_corrects)
                 plt.show()
-                # display.display(plt.gcf())
-                display.clear_output(wait=True)
-                time.sleep(1)
+            else:
+                with out:
+                    fig, axs = stats_plot(train_loss, train_acc, train_rejected_corrects, test_acc, test_rejected_corrects)
+                    plt.show()
+                    # display.display(plt.gcf())
+                    display.clear_output(wait=True)
+                    time.sleep(1)
+
+    elapsed = pbar.format_dict["elapsed"]
+    rate = 1 / pbar.format_dict["rate"] # s/it
+
+    elapsed_str = pbar.format_interval(elapsed)
+    rate_str = pbar.format_interval(rate)
+
+    print(f"Total Runtime: {elapsed_str} ({rate_str} per Epoch for {epochs} Epochs)")
 
     return train_loss, train_acc, train_rejected_corrects, test_acc, test_rejected_corrects
 

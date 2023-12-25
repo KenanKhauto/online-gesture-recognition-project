@@ -21,7 +21,7 @@ def _type_2_maximum_likelihood_loss(
     Returns:
         loss (L): Loss (N)
     """
-    loss = torch.sum(y * (S.log() - alpha.log()), dim=1)
+    loss = torch.sum(y * (S.log()[:, None] - alpha.log()), dim=1)
     return loss
 
 
@@ -42,7 +42,7 @@ def _bayes_risk_for_cross_entropy_loss(
     Returns:
         loss (L): Loss (N)
     """
-    loss = torch.sum(y * (torch.digamma(S) - torch.digamma(alpha)), dim=1)
+    loss = torch.sum(y * (torch.digamma(S)[:, None] - torch.digamma(alpha)), dim=1)
     return loss
 
 
@@ -63,6 +63,7 @@ def _bayes_risk_for_sse_loss(
     Returns:
         loss (L): loss (N)
     """
+    S = S[:, None]
     p = alpha / S # expected probability
 
     loss = torch.sum((y - p)**2 + p*(1-p)/(S+1), dim=1)
@@ -83,7 +84,7 @@ def _KL_divergence(alpha_tilde):
     K = alpha_tilde.shape[1]
 
     divergence = torch.lgamma(sum_alpha_tildes) - torch.lgamma(torch.tensor(K, dtype=alpha_tilde.dtype)) - torch.sum(torch.lgamma(alpha_tilde), dim=1) \
-    + torch.sum((alpha_tilde - 1) * (torch.digamma(alpha_tilde) - torch.digamma(sum_alpha_tildes)))
+    + torch.sum((alpha_tilde - 1) * (torch.digamma(alpha_tilde) - torch.digamma(sum_alpha_tildes)[:, None]), dim=1)
     return divergence
 
 REDUCTION_MAP = {
@@ -125,7 +126,7 @@ def _edl_loss(
     """
     annealing_coeff = min(1, training_epoch/10)
 
-    reduce = REDUCTION_MAP[reduction.lower()]
+    reduce = REDUCTION_MAP[reduction.lower() if reduction else reduction]
 
     loss = reduce(loss_func(y, alpha, S)) + annealing_coeff * reduce(_KL_divergence(alpha_tilde))
     return loss
@@ -192,8 +193,8 @@ def get_belief_probs_and_uncertainty(evidence, num_classes):
     """
     alpha = evidence + 1 # (N, K)
     S = torch.sum(alpha, dim=1) # (N)
-    belief = evidence / S # (N, K) / (N) = (N, K)
-    probs = alpha / S # (N, K) / (N) = (N, K)
+    belief = evidence / S[:, None] # (N, K) / (N) = (N, K)
+    probs = alpha / S[:, None] # (N, K) / (N) = (N, K)
     uncertainty = num_classes / S # (1) / (N) = (N)
     return belief, probs, uncertainty
 

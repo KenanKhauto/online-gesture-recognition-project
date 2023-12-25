@@ -18,7 +18,7 @@ def stats_plot(train_loss, train_acc, train_rejected_corrects, val_acc, val_reje
     for i in range(2):
         axs[i, 0].set_xlabel("epoch"), axs[i, 0].set_ylabel("loss")
         axs[i, 1].set_xlabel("epoch"), axs[i, 1].set_ylabel("accuracy")
-        axs[i, 2].set_xlabel("epoch"), axs[i, 1].set_ylabel("rejected corrects")
+        axs[i, 2].set_xlabel("epoch"), axs[i, 2].set_ylabel("rejected corrects")
 
     for i, (train, val) in enumerate(zip(
         [train_loss,    train_acc,  train_rejected_corrects,    last_train_loss,    last_train_acc, last_train_rejected_corrects],

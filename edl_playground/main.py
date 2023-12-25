@@ -4,6 +4,7 @@ import argparse
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 from torchvision import transforms
 from torch.optim.lr_scheduler import StepLR
@@ -20,9 +21,10 @@ from base.utils import get_device
 from base.run import run
 from edl.losses import EDL_Loss, EDL_LOSSES
 from edl.run import run as edl_run
+from edl.grid_search_uncertainty_thresholds import stats_plot
 
 
-def main(args):
+def _main(args):
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -111,7 +113,7 @@ def create_parser():
     parser.add_argument('--uncertainty', action='store_true', help='Use uncertainty')
     parser.add_argument('--no-uncertainty', dest='uncertainty', action='store_false', help='Do not use uncertainty')
     parser.set_defaults(uncertainty=True)
-    parser.add_argument('--uncertainty_loss', choices=EDL_LOSSES, default="ml",
+    parser.add_argument('--uncertainty-loss', choices=EDL_LOSSES, default="sse",
                         help='Loss function to use when using uncertainty')
     parser.add_argument('--uncertainty-thresh', type=float, default=0.9,
                         help='Uncertainty threshold above which the model is assumed to reject making predictions (predicts "I do not know")')
@@ -126,7 +128,53 @@ def create_parser():
                         help='Only use N train samples per class')
     parser.add_argument('--test-samples', type=int, default=None, metavar='N',
                         help='Only use N test samples per class')
+    
+    subparsers = parser.add_subparsers(dest="grid_search_subcommand")
+
+    grid_search_uncertainty_tresh_parser = subparsers.add_parser("grid-search-uncertainty-thresh")
+    grid_search_uncertainty_tresh_group = grid_search_uncertainty_tresh_parser.add_mutually_exclusive_group()
+    grid_search_uncertainty_tresh_group.add_argument('--thresholds', metavar='N', type=float, nargs='*', help='List of uncertainty threshold for grid search above which the model is assumed to reject making predictions (predicts "I do not know")')
+    grid_search_uncertainty_tresh_group.add_argument('--range', nargs="*", metavar=('start', 'end', 'step'), type=float, help='Range [start, end] of uncertainty threshold for grid search above which the model is assumed to reject making predictions (predicts "I do not know")')
+
     return parser
+
+def main(args):
+    if args.grid_search_subcommand == 'grid-search-uncertainty-thresh':
+        grid_search_uncertainty_tresh(args)
+    else:
+        main(args)
+
+
+def grid_search_uncertainty_tresh(args):
+    if not args.uncertainty:
+        raise argparse.ArgumentTypeError("subcommand grid-search-uncertainty-thresh requires argument uncertainty")
+    elif not args.thresholds and not args.range:
+        raise argparse.ArgumentTypeError("Both thresholds and range arguments are not specified for subcommand grid-search-uncertainty-thresh")
+    elif args.range and len(args.range) != 3:
+        raise argparse.ArgumentTypeError(f"3 elements must be passed to range argument for subcommand grid-search-uncertainty-thresh (passed: {args.range})")
+    elif args.range:
+        args.thresholds = torch.arange(args.range[0], args.range[1] + args.range[2], args.range[2]).tolist()
+
+    train_loss = []
+    train_acc = []
+    train_rejected_corrects = []
+    test_acc = []
+    test_rejected_corrects = []
+
+    for thresh in args.thresholds:
+        print("Uncertainty threshold:", thresh)
+        args.uncertainty_thresh = thresh
+        train_loss_, train_acc_, train_rejected_corrects_, test_acc_, test_rejected_corrects_ = _main(args)
+        train_loss.append(train_loss_[-1])
+        train_acc.append(train_acc_[-1])
+        train_rejected_corrects.append(train_rejected_corrects_[-1])
+        test_acc.append(test_acc_[-1])
+        test_rejected_corrects.append(test_rejected_corrects_[-1])
+
+    fig, axs = stats_plot(args.thresholds, train_loss, train_acc, train_rejected_corrects, test_acc, test_rejected_corrects)
+    plt.show()
+
+    return train_loss, train_acc, train_rejected_corrects, test_acc, test_rejected_corrects
 
 
 if __name__ == '__main__':

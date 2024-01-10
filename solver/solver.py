@@ -1,27 +1,57 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchmetrics
+from torch.utils.data import DataLoader, random_split
 
 class Solver:
-    def __init__(self, model, train_loader, test_loader, criterion, optimizer, device, cnn_trans = False):
+    def __init__(self, model, train_set, test_set, criterion, optimizer, scheduler, device, cnn_trans = False):
         """
         Initialize the Solver with the required components.
 
         Args:
             model (nn.Module): The neural network model.
-            train_loader (DataLoader): DataLoader for the training data.
-            test_loader (DataLoader): DataLoader for the testing data.
+            train_set (DataLoader): DataLoader for the training data.
+            test_set (DataLoader): DataLoader for the testing data.
             criterion (nn.Module): Loss function.
             optimizer (optim.Optimizer): Optimizer for training.
+            scheduler (optim.lr_scheduler): learning rate scheduler
             device (torch.device): The device to run the model on.
         """
+        train_size = int(0.8 * len(train_set))
+        val_size = len(train_set) - train_size
+
+        self.train_set, self.val_set = random_split(train_set, [train_size, val_size])
+        self.test_set = test_set
+
         self.model = model.to(device)
-        self.train_loader = train_loader
-        self.test_loader = test_loader
+
         self.criterion = criterion
         self.optimizer = optimizer
+
         self.device = device
+
         self.cnn_trans = cnn_trans
+
+        self.scheduler = scheduler
+
+        self.accuracy_metric = torchmetrics.Accuracy(task="multiclass", num_classes=14).to(self.device)
+        self.precision_metric = torchmetrics.Precision(task="multiclass", num_classes=14).to(self.device)
+        self.recall_metric = torchmetrics.Recall(task="multiclass", num_classes=14).to(self.device)
+
+        self.criterion = criterion
+        self.optim = optimizer
+
+        self.train_accuracy = []
+        self.train_precision = []
+        self.train_recall = []
+
+        self.val_accuracy = []
+        self.val_precision = []
+        self.val_recall = []
+
+        self.loss_history = []
+
 
     def save(self, file_path):
         """
@@ -49,43 +79,98 @@ class Solver:
             num_epochs (int): Number of epochs to train the model.
         """
         self.model.train()
+        self.model.to(self.device)
+        best_val_accracy = 0
+        best_param = None
+        train_loader = DataLoader(self.train_set, batch_size=128, shuffle=True)
+        
         for epoch in range(num_epochs):
-            running_loss = 0.0
-            bn = 1
-            for data in self.train_loader:
+            self.scheduler.step()
+            loss_history = []
+
+            for i, data in enumerate(train_loader):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
                 
                 if not self.cnn_trans:
                     inputs = inputs.permute(0, 2, 1, 3, 4)
                 # print(labels)
                 
-                self.optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
                 loss.backward()
+
                 self.optimizer.step()
+                self.optimizer.zero_grad()
 
-                running_loss += loss.item()
-                print(f"Batch {bn} done!")
-                bn += 1
-                
-            print(f'Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(self.train_loader)}')
+                loss_history.append(loss.item())
 
-    def test(self):
+            epoch_loss = sum(loss_history) / i
+            self.loss_history.append(epoch_loss)
+
+            results_train = self.test(self.train_set, num_samples=1000)
+            results_val = self.test(self.val_set, num_samples=1000)
+
+            self.train_accuracy.append(results_train["accuracy"])
+            self.train_precision.append(results_train["precision"])
+            self.train_recall.append(results_train["recall"])
+
+            self.val_accuracy.append(results_val["accuracy"])
+            self.val_precision.append(results_val["precision"])
+            self.val_recall.append(results_val["recall"])
+
+            if results_val["accuracy"] > best_val_accracy:
+                best_val_accracy = results_val["accuracy"]
+                best_param = self.model.state_dict().copy()
+        
+        self.model.load_state_dict(best_param)
+
+        return {
+            "loss":self.loss_history,
+            "train_accuracy":self.train_accuracy,
+            "train_precision":self.train_precision,
+            "train_recall":self.train_recall,
+            "val_accuracy":self.val_accuracy,
+            "val_precision":self.val_precision,
+            "val_recall":self.val_recall,  
+        }
+    
+
+    def test(self, dataset, num_samples=None):
         """
         Test the model.
         """
+        self.model.to(self.device)
         self.model.eval()
-        correct = 0
-        total = 0
+        self.accuracy_metric.reset()
+        self.precision_metric.reset()
+        self.recall_metric.reset()
+
+        dataset_size = len(dataset)
+
+        if num_samples and num_samples < dataset_size:
+            dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
+
+        loader = DataLoader(dataset, batch_size=128, shuffle=False)
+
         with torch.no_grad():
-            for data in self.test_loader:
+            for data in loader:
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
+
                 if not self.cnn_trans:
                     inputs = inputs.permute(0, 2, 1, 3, 4)
+                    
                 outputs = self.model(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                self.accuracy_metric(outputs, labels)
+                self.precision_metric(outputs, labels)
+                self.recall_metric(outputs, labels)
+            
+            test_accuracy = self.accuracy_metric.compute().item()
+            test_recall = self.recall_metric.compute().item()
+            test_precision = self.precision_metric.compute().item()
+        self.model.train()
+        return {
+            "accuracy":test_accuracy,
+            "precision":test_precision,
+            "recall":test_recall
+        }
 
-        print(f'Accuracy: {100 * correct / total}%')

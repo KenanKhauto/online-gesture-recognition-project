@@ -1,8 +1,0 @@
-
-# Ignore the dataset
-/IPN_Hand
-edl_playground/data
-
-__pycache__/
-
-*.pt

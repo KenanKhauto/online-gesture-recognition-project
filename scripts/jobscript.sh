@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:8                     # Number of GPUs to use
 #SBATCH --time=10:00:00                  # Time limit hrs:min:sec
 
-#SBATCH --output=console_output/training_%j.log
+#SBATCH --output=console_output/training_%j.txt
 
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=kenan.khauto@outlook.com

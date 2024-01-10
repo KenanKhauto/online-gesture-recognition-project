@@ -21,4 +21,4 @@ conda activate /scratch/vihps/vihps14/env/
 
 cd ~/project/online-gesture-recognition-project/
 
-python train.py /scratch/vihps/vihps14/IPN_Hand/frames /scratch/vihps/vihps14/IPN_Hand/annotations/Annot_TrainList.txt /scratch/vihps/vihps14/IPN_Hand/annotations/Annot_TestList.txt /scratch/vihps/vihps14/IPN_Hand/models/cnn_trans.pth
+srun python run.py

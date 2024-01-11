@@ -85,7 +85,7 @@ class Solver:
         train_loader = DataLoader(self.train_set, batch_size=128, shuffle=True)
         
         for epoch in range(num_epochs):
-            self.scheduler.step()
+            
             loss_history = []
 
             for i, data in enumerate(train_loader):
@@ -121,7 +121,8 @@ class Solver:
             if results_val["accuracy"] > best_val_accracy:
                 best_val_accracy = results_val["accuracy"]
                 best_param = self.model.state_dict().copy()
-        
+
+        self.scheduler.step()
         self.model.load_state_dict(best_param)
 
         return {

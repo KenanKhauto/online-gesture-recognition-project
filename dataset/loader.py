@@ -10,9 +10,10 @@ from torch.utils.data import Dataset
 import os
 import cv2
 import numpy as np
+import h5py
 
 class GestureDataset(Dataset):
-    def __init__(self, frame_folders, label_file, transform=None, sample_duration = 142):
+    def __init__(self, hdf5_path, label_file, transform=None, sample_duration = 142):
         """
 
         Parameter:
@@ -20,11 +21,16 @@ class GestureDataset(Dataset):
             label_file: Path to the label .txt file.
             transform: Optional transforms to be applied on a sample.
         """
-        self.frame_folders = frame_folders
+        self.hdf5_path = hdf5_path
+        # self.frame_folders = frame_folders
         self.labels = self.parse_labels(label_file)
         self.transform = transform
         self.sample_duration = sample_duration
+        self.hdf5_file = h5py.File(self.hdf5_path, 'r')
 
+    def __del__(self):
+        self.hdf5_file.close()
+    
     def parse_labels(self, label_file):
         """
         Parse the label file and return a structure containing
@@ -75,38 +81,49 @@ class GestureDataset(Dataset):
             frames_tensor = torch.stack(transformed_frames)
             return frames_tensor, id, label
         return np.array(frames), id, label
+    
 
     def load_frames(self, folder_name, start, end):
         """
-        Load and return frames from the specified folder, between start and end frames.
+        Load and return frames from the HDF5 file, between start and end frames.
 
         Parameters:
-            folder_name: video name that contain all the frames of a video
-            start: starting frame
-            end: ending frame
+            folder_name: Name of the group in the HDF5 file corresponding to the video.
+            start: Starting frame number.
+            end: Ending frame number.
         """
 
         frames = []
-        folder_path = os.path.join(self.frame_folders, folder_name)
         total_frames = end - start + 1
         step = max(1, total_frames // self.sample_duration)
-        for frame_idx in range(start, end + 1, step):  # skip frames if more than fixed frame count
-            frame_path = os.path.join(folder_path, f"{folder_name}_{str(frame_idx).zfill(6)}.jpg")
-            frame = cv2.imread(frame_path)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert to RGB
-            frames.append(frame)
-            if len(frames) == self.sample_duration:
-                break
+        # Ensure the video group exists in the HDF5 file
+        if folder_name in self.hdf5_file:
+            video_group = self.hdf5_file[folder_name]
 
-        while len(frames) < self.sample_duration:
-            frames.append(np.zeros_like(frames[0]))  # apply padding to gestures with smaller frames number
+            for frame_idx in range(start, end + 1, step):  # Skip frames if more than fixed frame count
+                # Construct the dataset name for each frame
+                frame_dataset_name = f"{folder_name}_{folder_name}_{str(frame_idx).zfill(6)}"  # Assuming frame datasets are named by their indices
+
+                if frame_dataset_name in video_group:
+                    frame_data = video_group[frame_dataset_name]
+                    frame = np.array(frame_data)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frames.append(frame)
+                    if len(frames) == self.sample_duration:
+                        break
+
+        # Apply padding to gestures with fewer frames than self.sample_duration
+        while len(frames) < self.sample_duration and len(frames) > 0:
+            frames.append(np.zeros_like(frames[0]))
+
         return frames
 
 
 if __name__ == "__main__":
     file = os.path.join(".", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
-    frame_folders = os.path.join(".", "IPN_Hand", "frames")
-    dataset = GestureDataset(frame_folders, file)
+    # frame_folders = os.path.join(".", "IPN_Hand", "frames")
+    hdf5_path = os.path.join(".", "IPN_Hand", "hand_gestures.h5")
+    dataset = GestureDataset(hdf5_path, file)
     # test_sample = dataset.get_labels()[0]
     # frames = dataset.load_frames(test_sample[0], test_sample[1], test_sample[2])
 
@@ -119,7 +136,7 @@ if __name__ == "__main__":
     # out = cv2.VideoWriter("output.avi", fourcc, 20.0, (w, h))
     print(frames_tensor.shape[0])
     for i in range(frames_tensor.shape[0]):
-        frame = frames_tensor[i].numpy()
+        frame = frames_tensor[i]
         # print(f"shape of frame {i}: {frame.shape}")
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB, frame)
         if frame.max() <= 1.0:

@@ -4,16 +4,20 @@ import math
 
 from torch.testing import assert_close
 
-from losses import (
+from .losses import (
     _type_2_maximum_likelihood_loss,
     _bayes_risk_for_cross_entropy_loss,
     _bayes_risk_for_sse_loss,
     _KL_divergence,
-    _edl_loss,
-    EDL_Loss,
+    Type2MaximumLikelihoodLoss,
+    BayesRiskForCrossEntropyLoss,
+    BayesRiskForSSELoss,
+    KL_Divergence_RegularizationLoss,
+    LinearAnnealingFactor,
     get_belief_probs_and_uncertainty,
     get_correct_preds,
 )
+
 class Test_EDL_Loss(unittest.TestCase):
 
     def test_type_2_maximum_likelihood(self):
@@ -67,7 +71,7 @@ class Test_EDL_Loss(unittest.TestCase):
 
         alpha_tilde = y + (1 - y) * alpha
 
-        divergence = _KL_divergence(alpha_tilde)
+        divergence = _KL_divergence(alpha_tilde, annealing_coeff=1)
 
         target = torch.tensor([
             math.log(math.gamma(42) / (math.gamma(2) * math.gamma(41) * math.gamma(1))) \
@@ -79,20 +83,19 @@ class Test_EDL_Loss(unittest.TestCase):
         self.assertEqual(divergence.shape, torch.Size([y.shape[0]]))
         assert_close(divergence, target)
 
-    def test_edl_loss(self):
+    def test_edl_loss_classes(self):
         self.test_KL_divergence()
         self.test_type_2_maximum_likelihood()
         self.test_bayes_risk_for_cross_entropy_loss()
         self.test_bayes_risk_for_sse_loss()
 
-        loss_func = _type_2_maximum_likelihood_loss
+        target = torch.tensor([1, 0])
         y = torch.tensor([[0, 1], [1, 0]])
         alpha = torch.tensor([[41, 1], [2, 3]])
         S = torch.sum(alpha, dim=1)
+        evidence = alpha - 1
 
         alpha_tilde = y + (1 - y) * alpha
-
-        divergence = _KL_divergence(alpha_tilde)
 
         loss = _type_2_maximum_likelihood_loss(y, alpha, S)
         
@@ -100,100 +103,58 @@ class Test_EDL_Loss(unittest.TestCase):
 
         annealing_coeff = min(1, training_epoch/10)
 
-        loss_target = loss + annealing_coeff * divergence
+        regularization_loss = _KL_divergence(alpha_tilde, annealing_coeff)
 
-        loss_None = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, None)
-        loss_none = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, "none")
-        loss_mean = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, "mean")
-        loss_sum = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, "sum")
+        loss_target = loss + regularization_loss
 
-        assert_close(loss_None, loss_target)
-        assert_close(loss_none, loss_target)
+        annealing_factor = LinearAnnealingFactor()
+        criterion = Type2MaximumLikelihoodLoss() + KL_Divergence_RegularizationLoss(annealing_factor)
+        loss_samplewise = criterion(evidence, target, training_epoch=training_epoch)
+        loss_mean = torch.mean(loss_samplewise)
+        loss_sum = torch.sum(loss_samplewise)
+
+        assert_close(loss_samplewise, loss_target)
         assert_close(loss_mean, (loss_target[0] + loss_target[1]) / 2)
         assert_close(loss_sum, loss_target[0] + loss_target[1])
 
         ##################################################################################
         
-        loss_func = _bayes_risk_for_cross_entropy_loss
-        
         loss = _bayes_risk_for_cross_entropy_loss(y, alpha, S)
 
-        loss_target = loss + annealing_coeff * divergence
+        loss_target = loss + regularization_loss
 
-        loss_None = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, None)
+        criterion = BayesRiskForCrossEntropyLoss() + KL_Divergence_RegularizationLoss(annealing_factor)
+        loss_samplewise = criterion(evidence, target, training_epoch=training_epoch)
 
-        assert_close(loss_None, loss_target)
+        assert_close(loss_samplewise, loss_target)
 
         ##################################################################################
         
-        loss_func = _bayes_risk_for_sse_loss
-        
         loss = _bayes_risk_for_sse_loss(y, alpha, S)
 
-        loss_target = loss + annealing_coeff * divergence
+        loss_target = loss + regularization_loss
 
-        loss_None = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, None)
+        criterion = BayesRiskForSSELoss() + KL_Divergence_RegularizationLoss(annealing_factor)
+        loss_samplewise = criterion(evidence, target, training_epoch=training_epoch)
 
-        assert_close(loss_None, loss_target)
+        assert_close(loss_samplewise, loss_target)
 
         ##################################################################################
 
         training_epoch = 1
 
         annealing_coeff = min(1, training_epoch/10)
-        
-        loss_func = _bayes_risk_for_sse_loss
+
+        regularization_loss = _KL_divergence(alpha_tilde, annealing_coeff)
         
         loss = _bayes_risk_for_sse_loss(y, alpha, S)
 
-        loss_target = loss + annealing_coeff * divergence
+        loss_target = loss + regularization_loss
 
-        loss_None = _edl_loss(loss_func, training_epoch, y, alpha, S, alpha_tilde, None)
+        criterion = BayesRiskForSSELoss() + KL_Divergence_RegularizationLoss(annealing_factor)
+        loss_samplewise = criterion(evidence, target, training_epoch=training_epoch)
 
-        assert_close(loss_None, loss_target)
-
-    def test_EDL_Loss(self):
-        self.test_edl_loss()
-
-        alpha = torch.tensor([[41, 1], [2, 3]])
-        evidence = alpha - 1
-        target = torch.tensor([1, 0])
-
-        training_epoch = 1
-        reduction = "mean"
-
-        y = torch.tensor([[0, 1], [1, 0]])
-        alpha = torch.tensor([[41, 1], [2, 3]])
-        S = torch.sum(alpha, dim=1)
-        alpha_tilde = y + (1 - y) * alpha
-
-        loss_fn = EDL_Loss("ml")
-
-        loss_target = _edl_loss(_type_2_maximum_likelihood_loss, training_epoch, y, alpha, S, alpha_tilde, reduction)
-
-        loss = loss_fn(evidence, target, training_epoch, reduction)
-
-        assert_close(loss, loss_target)
-
-        ##################################################################
-
-        loss_fn = EDL_Loss("ce")
-
-        loss_target = _edl_loss(_bayes_risk_for_cross_entropy_loss, training_epoch, y, alpha, S, alpha_tilde, reduction)
-
-        loss = loss_fn(evidence, target, training_epoch, reduction)
-
-        assert_close(loss, loss_target)
-
-        ##################################################################
-
-        loss_fn = EDL_Loss("sse")
-
-        loss_target = _edl_loss(_bayes_risk_for_sse_loss, training_epoch, y, alpha, S, alpha_tilde, reduction)
-
-        loss = loss_fn(evidence, target, training_epoch, reduction)
-
-        assert_close(loss, loss_target)
+        assert_close(loss_samplewise, loss_target)
 
     def test_get_belief_probs_and_uncertainty(self):
         y = torch.tensor([[0, 1], [1, 0]])

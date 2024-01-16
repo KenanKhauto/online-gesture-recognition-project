@@ -15,7 +15,7 @@ def test(model, device, test_loader, criterion, print_fn=print):
             output = model(data)
 
             output = F.log_softmax(output, dim=1)
-            loss = criterion(output, target, reduction='sum').item()
+            loss = torch.sum(criterion(output, target)).item()
             test_loss += loss
             total_correct += get_correct_preds(output, target)
 

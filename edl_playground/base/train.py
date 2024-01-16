@@ -16,7 +16,7 @@ def train(model, device, train_loader, criterion, optimizer, epoch, log_interval
         # print(data.shape, target.shape, output.shape) # (1, 1, 28, 28), (1), (1, 10)
         # print(data, target, output)
         output = F.log_softmax(output, dim=1)
-        individual_loss = criterion(output, target, reduction="none")
+        individual_loss = criterion(output, target)
         total_correct += get_correct_preds(output, target)
         loss = torch.mean(individual_loss)
         loss.backward()

@@ -6,9 +6,10 @@ from .losses import get_correct_preds
 
 def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_thresh, log_interval, dry_run, print_fn=print):
     model.train()
-    train_loss = 0
-    total_correct = 0
+    total_correct_considering_thresh = 0
     total_rejected_corrects = 0
+    total_correct = 0
+    train_loss = 0
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -17,10 +18,13 @@ def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_
         # print(data.shape, target.shape, output.shape) # (1, 1, 28, 28), (1), (1, 10)
         # print(data, target, output)
         evidence = F.relu(output)
-        individual_loss = criterion(evidence, target, epoch, reduction="none")
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
-        total_correct += correct
+        individual_loss = criterion(evidence, target, epoch)
+
+        correct_considering_thresh, rejected_corrects, correct = get_correct_preds(evidence, target, uncertainty_thresh)
+        total_correct_considering_thresh += correct_considering_thresh
         total_rejected_corrects += rejected_corrects
+        total_correct += correct
+
         loss = torch.mean(individual_loss)
         loss.backward()
         optimizer.step()
@@ -34,7 +38,10 @@ def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_
             if dry_run:
                 break
 
-    train_acc = total_correct / len(train_loader.dataset)
-    train_loss /= len(train_loader.dataset)
-    share_rejected_corrects = total_rejected_corrects / len(train_loader.dataset)
-    return train_acc, train_loss, share_rejected_corrects
+    metrics = {
+        "acc_with_thresh": total_correct_considering_thresh / len(train_loader.dataset),
+        "acc": total_correct / len(train_loader.dataset),
+        "share_rejected_corrects": total_rejected_corrects / len(train_loader.dataset),
+        "loss": train_loss / len(train_loader.dataset)
+    }
+    return metrics

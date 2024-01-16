@@ -2,31 +2,46 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def stats_plot(train_loss, train_acc, train_rejected_corrects, val_acc, val_rejected_corrects, last_n_epochs: int=10):
-    fig, axs = plt.subplots(2, 3, figsize=(20, 16))
+def _map_layout(layout: list, d: dict) -> list:
+    mapped_layout = []
+    for e in layout:
+        mapped_layout.append(d[e] if e is not None else None)
+    return mapped_layout
 
-    train_loss, train_acc, train_rejected_corrects, val_acc, val_rejected_corrects = [np.array(x) for x in [train_loss, train_acc, train_rejected_corrects, val_acc, val_rejected_corrects]]
-    last_train_loss, last_train_acc, last_train_rejected_corrects, last_val_acc, last_val_rejected_corrects = [x[-last_n_epochs:] for x in [train_loss, train_acc, train_rejected_corrects, val_acc, val_rejected_corrects]]
+
+def stats_plot(train_metrics: dict, val_metrics: dict, uncertainty_thresh: float, last_n_epochs: int=10):
+    fig, axs = plt.subplots(2, 4, figsize=(20, 21))
+
+    train_metrics = {k: np.array(v) for k, v in train_metrics.items()}
+    val_metrics = {k: np.array(v) for k, v in val_metrics.items()}
+    last_train_metrics = {k: v[-last_n_epochs:] for k, v in train_metrics.items()}
+    last_val_metrics = {k: v[-last_n_epochs:] for k, v in val_metrics.items()}
 
     axs[0, 0].set_title("Loss")
-    axs[0, 1].set_title("Accuracy")
-    axs[0, 2].set_title("Share of Rejected Corrects due to Uncertainty")
+    axs[0, 1].set_title(f"Accuracy (u <= {uncertainty_thresh})")
+    axs[0, 2].set_title(f"Accuracy regardless of u")
+    axs[0, 3].set_title("Share of Rejected Corrects due to Uncertainty")
     axs[1, 0].set_title(f"Loss (Last {last_n_epochs} Epochs)")
-    axs[1, 1].set_title(f"Accuracy (Last {last_n_epochs} Epochs)")
-    axs[1, 2].set_title(f"Share of Rejected Corrects (Last {last_n_epochs} Epochs)")
+    axs[1, 1].set_title(f"Accuracy (u <= {uncertainty_thresh}) (Last {last_n_epochs} Epochs)")
+    axs[1, 2].set_title(f"Accuracy regardless of u (Last {last_n_epochs} Epochs)")
+    axs[1, 3].set_title(f"Share of Rejected Corrects (Last {last_n_epochs} Epochs)")
 
     for i in range(2):
         axs[i, 0].set_xlabel("epoch"), axs[i, 0].set_ylabel("loss")
         axs[i, 1].set_xlabel("epoch"), axs[i, 1].set_ylabel("accuracy")
-        axs[i, 2].set_xlabel("epoch"), axs[i, 2].set_ylabel("rejected corrects")
+        axs[i, 2].set_xlabel("epoch"), axs[i, 2].set_ylabel("accuracy")
+        axs[i, 3].set_xlabel("epoch"), axs[i, 3].set_ylabel("rejected corrects")
+
+    train_layout =  ["loss",    "acc_with_thresh",  "acc",  "share_rejected_corrects"]
+    val_layout =    [None,      "acc_with_thresh",  "acc",  "share_rejected_corrects"]
 
     for i, (train, val) in enumerate(zip(
-        [train_loss,    train_acc,  train_rejected_corrects,    last_train_loss,    last_train_acc, last_train_rejected_corrects],
-        [None,          val_acc,    val_rejected_corrects,      None,               last_val_acc,   last_val_rejected_corrects  ]
+        _map_layout(train_layout, train_metrics) + _map_layout(train_layout, last_train_metrics),
+        _map_layout(val_layout, val_metrics) + _map_layout(val_layout, last_val_metrics),
     )):
-        ax = axs[i//3, i%3]
+        ax = axs[i//4, i%4]
         ax.plot(train, label="train")
-        if i%3 != 0:
+        if i%4 != 0:
             ax.plot(val, label="val")
         ax.legend()
         ax.ticklabel_format(useOffset=False, style='plain')

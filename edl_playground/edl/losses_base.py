@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 
-import torch.nn.functional as F
-
 
 class Loss(ABC):
     @abstractmethod
@@ -28,8 +26,3 @@ class CombinedLoss:
             return CombinedLoss(*self.losses, *other_loss.losses)
         else:
             return CombinedLoss(*self.losses, other_loss)
-
-
-class NLL_Loss(Loss):
-    def __call__(self, input, target, *args, **kwargs):
-        return F.nll_loss(input, target, reduction='none')

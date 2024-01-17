@@ -9,6 +9,7 @@ from .losses import (
     _bayes_risk_for_cross_entropy_loss,
     _bayes_risk_for_sse_loss,
     _KL_divergence,
+    _EUC_loss,
     Type2MaximumLikelihoodLoss,
     BayesRiskForCrossEntropyLoss,
     BayesRiskForSSELoss,
@@ -82,6 +83,42 @@ class Test_EDL_Loss(unittest.TestCase):
 
         self.assertEqual(divergence.shape, torch.Size([y.shape[0]]))
         assert_close(divergence, target)
+
+    def test_EUC_loss(self):
+        probs = torch.tensor([
+            [41/42, 1/42],
+            [2/5, 3/5]
+        ])
+        uncertainty = torch.tensor([
+            2/42,
+            2/5
+        ])
+        annealing_coeff = 0.1
+        target = torch.tensor([1, 0])
+
+        target_loss = torch.tensor([
+            -(1-0.1)*(1-41/42)*math.log(2/42+0.01),
+            -(1-0.1)*(1-3/5)*math.log(2/5+0.01)
+        ])
+
+        loss = _EUC_loss(probs, target, uncertainty, annealing_coeff, eps=0.01)
+
+        self.assertEqual(loss.shape, target_loss.shape)
+        assert_close(loss, target_loss)
+
+        #############################################################
+        
+        target = torch.tensor([0, 1])
+
+        target_loss = torch.tensor([
+            -0.1*41/42*math.log(1-2/42+0.01),
+            -0.1*3/5*math.log(1-2/5+0.01)
+        ])
+
+        loss = _EUC_loss(probs, target, uncertainty, annealing_coeff, eps=0.01)
+
+        self.assertEqual(loss.shape, target_loss.shape)
+        assert_close(loss, target_loss)
 
     def test_edl_loss_classes(self):
         self.test_KL_divergence()
@@ -211,7 +248,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 0
         rejected_corrects_target = 0
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -224,7 +261,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 0
         rejected_corrects_target = 1
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -236,7 +273,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 1
         rejected_corrects_target = 0
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -248,7 +285,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 1
         rejected_corrects_target = 0
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -261,7 +298,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 0
         rejected_corrects_target = 2
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -273,7 +310,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 1
         rejected_corrects_target = 1
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -285,7 +322,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 1
         rejected_corrects_target = 1
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -297,7 +334,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 2
         rejected_corrects_target = 0
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)
@@ -309,7 +346,7 @@ class Test_EDL_Loss(unittest.TestCase):
         correct_target = 2
         rejected_corrects_target = 0
 
-        correct, rejected_corrects = get_correct_preds(evidence, target, uncertainty_thresh)
+        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
 
         self.assertEqual(correct, correct_target)
         self.assertEqual(rejected_corrects, rejected_corrects_target)

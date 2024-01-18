@@ -23,8 +23,8 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
 
     model = get_resnet101_3d()
 
-    if torch.cuda.device_count() > 1:
-        model = nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    #     model = nn.DataParallel(model)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)

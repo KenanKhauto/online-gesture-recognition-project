@@ -51,7 +51,7 @@ def main(rank, world_size, path_frames, path_annotations_train, path_annotations
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 5:
         print("Usage: python run.py <path_frames> <path_annotations_train> <path_annotations_test> <path_to_save>")
         sys.exit(1)
     path_frames = sys.argv[1]

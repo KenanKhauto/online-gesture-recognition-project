@@ -75,13 +75,13 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     if distr:
         if rank == 0:  # Save model and results in the main process
             solver.save(path_to_save)
-            with open("cnn_trans_results.json", "w") as f:
+            with open("cnn_trans_edl_results.json", "w") as f:
                 json.dump(results, f)
 
         cleanup()
     else:
         solver.save(path_to_save)
-        with open("cnn_trans_results.json", "w") as f:
+        with open("cnn_trans_edl_results.json", "w") as f:
             json.dump(results, f)
 
 

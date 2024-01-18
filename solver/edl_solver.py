@@ -114,7 +114,6 @@ class Solver(_Solver):
                 self.optimizer.zero_grad()
 
                 loss_history.append(loss.item())
-                break
 
             epoch_loss = sum(loss_history) / i
             self.loss_history.append(epoch_loss)
@@ -191,7 +190,6 @@ class Solver(_Solver):
                 self.recall_metric(probs, labels)
                 self.accuracy_metric_considering_uncertainty(evidence, labels)
                 self.rejected_corrects_metric(evidence, labels)
-                break
             
             test_accuracy = self.accuracy_metric.compute().item()
             test_recall = self.recall_metric.compute().item()

@@ -20,7 +20,7 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=60)
     ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=60)
 
-    model = resnetl10(num_classes = 2, sample_size = 32, sample_duration=60)
+    model = resnetl10(num_classes = 2, sample_size = 128, sample_duration=60)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)

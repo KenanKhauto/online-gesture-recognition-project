@@ -18,7 +18,8 @@ class Solver:
                  world_size = None,
                  batch_size = 64, 
                  cnn_trans = False,
-                 distr = False):
+                 distr = False,
+                 detector = False):
         """
         Initialize the Solver with the required components.
 
@@ -31,6 +32,9 @@ class Solver:
             scheduler (optim.lr_scheduler): learning rate scheduler
             device (torch.device): The device to run the model on.
         """
+        num_classes = 14
+        if detector:
+            num_classes = 2
         train_size = int(0.8 * len(train_set))
         val_size = len(train_set) - train_size
 
@@ -52,9 +56,9 @@ class Solver:
 
         self.scheduler = scheduler
 
-        self.accuracy_metric = torchmetrics.Accuracy(task="multiclass", num_classes=14).to(self.device)
-        self.precision_metric = torchmetrics.Precision(task="multiclass", num_classes=14).to(self.device)
-        self.recall_metric = torchmetrics.Recall(task="multiclass", num_classes=14).to(self.device)
+        self.accuracy_metric = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes).to(self.device)
+        self.precision_metric = torchmetrics.Precision(task="multiclass", num_classes=num_classes).to(self.device)
+        self.recall_metric = torchmetrics.Recall(task="multiclass", num_classes=num_classes).to(self.device)
 
         self.criterion = criterion
         self.optim = optimizer

@@ -17,11 +17,11 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     transforms.ToTensor()
     ])
 
-    ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=142)
-    ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=142)
+    ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=60)
+    ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=60)
 
     model = get_resnet101_3d()
-    
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 

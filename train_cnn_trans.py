@@ -85,6 +85,7 @@ if __name__ == "__main__":
                                         path_annotations_train, 
                                         path_annotations_test, 
                                         path_to_save,
+                                        distr,
                                         world_size), 
                                     nprocs=world_size, 
                                     join=True)

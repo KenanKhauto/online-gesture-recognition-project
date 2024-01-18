@@ -121,9 +121,9 @@ class GestureDataset(Dataset):
 
 
 if __name__ == "__main__":
-    file = os.path.join(".", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
+    file = os.path.join("D:", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
     # frame_folders = os.path.join(".", "IPN_Hand", "frames")
-    hdf5_path = os.path.join(".", "IPN_Hand", "hand_gestures.h5")
+    hdf5_path = os.path.join("D:", "IPN_Hand", "hand_gestures.h5")
     dataset = GestureDataset(hdf5_path, file)
     # test_sample = dataset.get_labels()[0]
     # frames = dataset.load_frames(test_sample[0], test_sample[1], test_sample[2])

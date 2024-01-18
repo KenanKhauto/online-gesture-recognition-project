@@ -108,6 +108,7 @@ class GestureDataset(Dataset):
                     frame_data = video_group[frame_dataset_name]
                     frame = np.array(frame_data)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = cv2.resize(frame, (128, 128))
                     frames.append(frame)
                     if len(frames) == self.sample_duration:
                         break

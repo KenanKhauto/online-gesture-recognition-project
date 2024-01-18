@@ -217,3 +217,15 @@ def resnetl10(**kwargs):
     """
     model = ResNetL(BasicBlock, [1, 1, 1, 1], **kwargs)
     return model
+
+
+if __name__ == "__main__":
+
+    model = resnetl10(num_classes = 2, sample_size = 32, sample_duration=60)
+
+    x = torch.rand((4, 3, 60, 32, 32))
+
+    print(x.shape)
+    out = model(x)
+
+    print(out.shape)

@@ -118,7 +118,6 @@ class Solver:
                 if self.world_size > 1:
                     self.train_sampler.set_epoch(epoch)
             loss_history = []
-
             for i, data in enumerate(train_loader):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
                 
@@ -134,7 +133,6 @@ class Solver:
                 self.optimizer.zero_grad()
 
                 loss_history.append(loss.item())
-
             epoch_loss = sum(loss_history) / i
             self.loss_history.append(epoch_loss)
 

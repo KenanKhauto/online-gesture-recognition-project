@@ -6,7 +6,7 @@
 #SBATCH --nodes=1                               # Run all processes on a single node
 #SBATCH --ntasks=1                              
 
-#SBATCH --gres=gpu:8                            # Number of GPUs to use
+#SBATCH --gres=gpu:1                            # Number of GPUs to use
 #SBATCH --time=10:00:00                         # Time limit hrs:min:sec
 
 #SBATCH --output=console_output/training_%j.txt
@@ -21,4 +21,4 @@ conda activate /scratch/vihps/vihps14/env/
 
 cd ~/project/online-gesture-recognition-project/
 
-srun python run_cnn_trans.py
+srun python run_detector.py

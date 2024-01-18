@@ -27,7 +27,10 @@ class GestureDataset(Dataset):
         self.hdf5_file = h5py.File(self.hdf5_path, 'r')
 
     def __del__(self):
-        self.hdf5_file.close()
+        try:
+            self.hdf5_file.close()
+        except:
+            print("error closing the hdf5 file, if you see any other errors in the future come back here")
     
     def parse_labels(self, label_file):
         """
@@ -44,7 +47,7 @@ class GestureDataset(Dataset):
         with open(label_file, 'r') as file:
             for line in file:
                 folder_name, label, id, start, end, number_frames = line.split(",")
-                labels.append((folder_name, int(start), int(end), False if label == "D0X" else True, int(id) - 1, int(number_frames)))
+                labels.append((folder_name, int(start), int(end), False if label == "D0X" else True, 0 if label == "D0X" else 1, int(number_frames)))
         return labels
 
     def get_labels(self):
@@ -106,6 +109,7 @@ class GestureDataset(Dataset):
                     frame_data = video_group[frame_dataset_name]
                     frame = np.array(frame_data)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = cv2.resize(frame, (128, 128))
                     frames.append(frame)
                     if len(frames) == self.sample_duration:
                         break
@@ -118,13 +122,14 @@ class GestureDataset(Dataset):
 
 
 if __name__ == "__main__":
-    file = os.path.join(".", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
+    file = os.path.join("D:", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
     # frame_folders = os.path.join(".", "IPN_Hand", "frames")
-    hdf5_path = os.path.join(".", "IPN_Hand", "hand_gestures.h5")
-    dataset = GestureDataset(hdf5_path, file)
+    hdf5_path = os.path.join("D:", "IPN_Hand", "hand_gestures.h5")
+    dataset = GestureDataset(hdf5_path, file, sample_duration=60)
     # test_sample = dataset.get_labels()[0]
     # frames = dataset.load_frames(test_sample[0], test_sample[1], test_sample[2])
 
+    #print(dataset.get_labels())
 
     frames_tensor = dataset[4][0]
     h = frames_tensor.shape[1]

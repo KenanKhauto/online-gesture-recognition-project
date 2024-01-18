@@ -50,7 +50,7 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
                     scheduler, 
                     device,
                     world_size, 
-                    batch_size=32, 
+                    batch_size=16, 
                     cnn_trans=True, 
                     distr=distr)
     results = solver.train(20)

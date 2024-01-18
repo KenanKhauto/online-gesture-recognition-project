@@ -21,16 +21,13 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=142)
 
     model = get_resnet101_3d()
-
-    # if torch.cuda.device_count() > 1:
-    #     model = nn.DataParallel(model)
-
+    
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, cnn_trans=False)
+    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, batch_size=8, cnn_trans=False)
     results = solver.train(20)
 
     solver.save(path_to_save)

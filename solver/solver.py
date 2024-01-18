@@ -7,7 +7,19 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
 class Solver:
-    def __init__(self, model, train_set, test_set, criterion, optimizer, scheduler, device, rank, world_size, cnn_trans = False):
+    def __init__(self, 
+                 model, 
+                 train_set, 
+                 test_set, 
+                 criterion, 
+                 optimizer, 
+                 scheduler, 
+                 device, 
+                 rank = None, 
+                 world_size = None, 
+                 batch_size = 64, 
+                 cnn_trans = False,
+                 distr = False):
         """
         Initialize the Solver with the required components.
 
@@ -56,8 +68,12 @@ class Solver:
 
         self.loss_history = []
 
-        self.rank = rank
-        self.world_size = world_size
+        self.distr = distr
+        if distr:
+            self.rank = rank
+            self.world_size = world_size
+        
+        self.batch_size = batch_size
 
 
     def save(self, file_path):
@@ -89,12 +105,17 @@ class Solver:
         self.model.to(self.device)
         best_val_accracy = 0
         best_param = None
-        self.train_sampler = DistributedSampler(self.train_set, num_replicas=self.world_size, rank=self.rank)
-        train_loader = DataLoader(self.train_set, batch_size=64, shuffle=False, sampler=self.train_sampler)
+
+        if self.distr:
+            self.train_sampler = DistributedSampler(self.train_set, num_replicas=self.world_size, rank=self.rank)
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=False, sampler=self.train_sampler)
+        else:
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True)
         
         for epoch in range(num_epochs):
-            if self.world_size > 1:
-                self.train_sampler.set_epoch(epoch)
+            if self.distr:
+                if self.world_size > 1:
+                    self.train_sampler.set_epoch(epoch)
             loss_history = []
 
             for i, data in enumerate(train_loader):
@@ -160,7 +181,7 @@ class Solver:
         if num_samples and num_samples < dataset_size:
             dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
 
-        loader = DataLoader(dataset, batch_size=64, shuffle=False)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
         with torch.no_grad():
             for data in loader:

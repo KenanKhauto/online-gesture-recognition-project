@@ -19,4 +19,4 @@
 
 cd ~/online-gesture-recognition-project/
 
-srun /scratch/vihps/vihps15/envs/torch/bin/python run_edl.py
+srun /scratch/vihps/vihps15/envs/torch/bin/python run_cnn_trans_edl.py

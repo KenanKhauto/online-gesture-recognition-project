@@ -39,7 +39,7 @@ def main(rank, world_size, path_frames, path_annotations_train, path_annotations
 
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, world_size, cnn_trans=True, distr=True)
+    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, world_size, batch_size=32, cnn_trans=True, distr=True)
     results = solver.train(20)
 
     if rank == 0:  # Save model and results in the main process

@@ -20,7 +20,7 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-def main(path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, world_size = None, rank = None):
+def main(path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, rank, world_size = None):
 
     if distr:
         setup(rank, world_size)
@@ -89,4 +89,4 @@ if __name__ == "__main__":
                                     nprocs=world_size, 
                                     join=True)
     else:
-        main(path_frames, path_annotations_train, path_annotations_test, path_to_save, distr)
+        main(path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, rank=None)

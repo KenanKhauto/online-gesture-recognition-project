@@ -39,8 +39,10 @@ class Solver:
         self.test_set = test_set
 
         self.model = model.to(device)
-        if world_size > 1:
-            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[rank])
+        
+        if distr:
+            if world_size > 1:
+                self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[rank])
 
         self.criterion = criterion
         self.optimizer = optimizer

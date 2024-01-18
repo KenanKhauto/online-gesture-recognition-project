@@ -1,12 +1,30 @@
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
+from torch.utils.data.distributed import DistributedSampler
 
 from .solver import Solver as _Solver
 from edl_playground.edl.metrics import AccuracyConsideringUncertaintyThresh, RejectedCorrectsConsideringUncertaintyTresh, get_probs
 
 class Solver(_Solver):
-    def __init__(self, model, train_set, test_set, criterion, optimizer, scheduler, device, uncertainty_thresh: float, activation=F.relu, cnn_trans = False, consider_uncertainty_for_best_model_val_accuracy: bool=True):
+    def __init__(
+        self, 
+        model, 
+        train_set, 
+        test_set, 
+        criterion, 
+        optimizer, 
+        scheduler, 
+        device,
+        uncertainty_thresh: float,
+        world_size = None,
+        batch_size = 64, 
+        cnn_trans = False,
+        distr = False,
+        detector = False,
+        activation=F.relu,
+        consider_uncertainty_for_best_model_val_accuracy: bool=True
+    ):
         """
         Initialize the Solver with the required components.
 
@@ -18,10 +36,25 @@ class Solver(_Solver):
             optimizer (optim.Optimizer): Optimizer for training.
             scheduler (optim.lr_scheduler): learning rate scheduler
             device (torch.device): The device to run the model on.
+            uncertainty_thresh (float): Uncertainty threshold above which the model rejects to make predictions
+            batch size (int): Batch size used for training and testing
             activation (function): Activation function used on model output to get evidence
             consider_uncertainty_for_best_model_val_accuracy (bool): Whether to considering the uncertainty threshold in the accuracy calculation for determining the best model
         """
-        super().__init__(model, train_set, test_set, criterion, optimizer, scheduler, device, cnn_trans)
+        super().__init__(
+            model=model,
+            train_set=train_set,
+            test_set=test_set,
+            criterion=criterion,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            device=device,
+            world_size=world_size,
+            batch_size=batch_size,
+            cnn_trans=cnn_trans,
+            distr=distr,
+            detector=detector,
+        )
         self.activation = activation
 
         self.accuracy_metric_considering_uncertainty = AccuracyConsideringUncertaintyThresh(uncertainty_thresh).to(self.device)
@@ -49,9 +82,17 @@ class Solver(_Solver):
         self.model.to(self.device)
         best_val_accracy = 0
         best_param = None
-        train_loader = DataLoader(self.train_set, batch_size=128, shuffle=True)
+
+        if self.distr:
+            self.train_sampler = DistributedSampler(self.train_set, num_replicas=self.world_size, rank=self.rank)
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=False, sampler=self.train_sampler)
+        else:
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True)
         
         for epoch in range(num_epochs):
+            if self.distr:
+                if self.world_size > 1:
+                    self.train_sampler.set_epoch(epoch)
             
             loss_history = []
 
@@ -132,7 +173,7 @@ class Solver(_Solver):
         if num_samples and num_samples < dataset_size:
             dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
 
-        loader = DataLoader(dataset, batch_size=128, shuffle=False)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
         with torch.no_grad():
             for data in loader:

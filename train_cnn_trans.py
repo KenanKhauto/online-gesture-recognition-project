@@ -18,10 +18,10 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     transforms.ToTensor()
     ])
 
-    ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=224)
-    ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=224)
+    ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=142)
+    ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=142)
 
-    model = get_resnet_transformer(64, 16, 64, 8)
+    model = get_resnet_transformer(64, 16, 64, 4)
 
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
@@ -36,7 +36,7 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
 
     solver.save(path_to_save)
 
-    with open("results.json", "w") as f:
+    with open("cnn_transformer_results.json", "w") as f:
         json.dump(results, f)
 
 

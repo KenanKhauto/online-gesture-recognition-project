@@ -82,7 +82,7 @@ class Solver:
         self.model.to(self.device)
         best_val_accracy = 0
         best_param = None
-        train_loader = DataLoader(self.train_set, batch_size=128, shuffle=True)
+        train_loader = DataLoader(self.train_set, batch_size=64, shuffle=True)
         
         for epoch in range(num_epochs):
             
@@ -151,7 +151,7 @@ class Solver:
         if num_samples and num_samples < dataset_size:
             dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
 
-        loader = DataLoader(dataset, batch_size=128, shuffle=False)
+        loader = DataLoader(dataset, batch_size=64, shuffle=False)
 
         with torch.no_grad():
             for data in loader:

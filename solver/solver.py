@@ -3,9 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torchmetrics
 from torch.utils.data import DataLoader, random_split
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
 class Solver:
-    def __init__(self, model, train_set, test_set, criterion, optimizer, scheduler, device, cnn_trans = False):
+    def __init__(self, model, train_set, test_set, criterion, optimizer, scheduler, device, rank, world_size, cnn_trans = False):
         """
         Initialize the Solver with the required components.
 
@@ -25,6 +27,8 @@ class Solver:
         self.test_set = test_set
 
         self.model = model.to(device)
+        if world_size > 1:
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[rank])
 
         self.criterion = criterion
         self.optimizer = optimizer
@@ -51,6 +55,9 @@ class Solver:
         self.val_recall = []
 
         self.loss_history = []
+
+        self.rank = rank
+        self.world_size = world_size
 
 
     def save(self, file_path):
@@ -82,10 +89,12 @@ class Solver:
         self.model.to(self.device)
         best_val_accracy = 0
         best_param = None
-        train_loader = DataLoader(self.train_set, batch_size=64, shuffle=True)
+        self.train_sampler = DistributedSampler(self.train_set, num_replicas=self.world_size, rank=self.rank)
+        train_loader = DataLoader(self.train_set, batch_size=64, shuffle=False, sampler=self.train_sampler)
         
         for epoch in range(num_epochs):
-            
+            if self.world_size > 1:
+                self.train_sampler.set_epoch(epoch)
             loss_history = []
 
             for i, data in enumerate(train_loader):

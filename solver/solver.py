@@ -15,8 +15,7 @@ class Solver:
                  optimizer, 
                  scheduler, 
                  device, 
-                 rank = None, 
-                 world_size = None, 
+                 world_size = None,
                  batch_size = 64, 
                  cnn_trans = False,
                  distr = False):
@@ -39,10 +38,10 @@ class Solver:
         self.test_set = test_set
 
         self.model = model.to(device)
-        
+
         if distr:
             if world_size > 1:
-                self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[rank])
+                self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[device])
 
         self.criterion = criterion
         self.optimizer = optimizer
@@ -72,7 +71,7 @@ class Solver:
 
         self.distr = distr
         if distr:
-            self.rank = rank
+            self.rank = device
             self.world_size = world_size
         
         self.batch_size = batch_size

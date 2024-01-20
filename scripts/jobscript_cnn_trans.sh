@@ -4,10 +4,10 @@
 
 #SBATCH --partition=gpu
 #SBATCH --nodes=1                               # Run all processes on a single node
-#SBATCH --ntasks=8                              
+#SBATCH --ntasks=1                              
 
 #SBATCH --gres=gpu:1                            # Number of GPUs to use
-#SBATCH --time=24:00:00                         # Time limit hrs:min:sec
+#SBATCH --time=48:00:00                         # Time limit hrs:min:sec
 
 #SBATCH --output=console_output/cnn_trans_training_%j.txt
 

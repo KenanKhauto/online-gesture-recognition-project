@@ -79,7 +79,7 @@ if __name__ == "__main__":
     path_annotations_train = sys.argv[2]
     path_annotations_test = sys.argv[3]
     path_to_save = sys.argv[4]
-    distr = True
+    distr = False
 
     if distr:
         world_size = torch.cuda.device_count()

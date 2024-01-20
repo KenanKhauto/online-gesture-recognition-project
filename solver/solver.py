@@ -19,7 +19,9 @@ class Solver:
                  batch_size = 64, 
                  cnn_trans = False,
                  distr = False,
-                 detector = False):
+                 detector = False,
+                 save_every = None,
+                 path_to_save = None):
         """
         Initialize the Solver with the required components.
 
@@ -80,6 +82,12 @@ class Solver:
         
         self.batch_size = batch_size
 
+        if save_every and path_to_save:
+            self.save_every = save_every
+            self.path_to_save = path_to_save
+        elif save_every and not path_to_save:
+            raise ValueError(f"You are trying to save every {save_every} epochs but you have not specified a path")
+            
 
     def save(self, file_path):
         """
@@ -127,8 +135,7 @@ class Solver:
                 
                 if not self.cnn_trans:
                     inputs = inputs.permute(0, 2, 1, 3, 4)
-                # print(labels)
-                
+
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
                 loss.backward()
@@ -155,8 +162,18 @@ class Solver:
                 best_val_accracy = results_val["accuracy"]
                 best_param = self.model.state_dict().copy()
 
-        self.scheduler.step()
-        self.model.load_state_dict(best_param)
+            self.scheduler.step()
+            self.model.load_state_dict(best_param)
+
+            if self.distr:
+                if self.rank == 0:
+                    if self.save_every and self.path_to_save and epoch % self.save_every == 0:
+                        self.save(self.path_to_save)
+            else:
+                if self.save_every and self.path_to_save and epoch % self.save_every == 0:
+                    self.save(self.path_to_save)
+
+            
 
         return {
             "loss":self.loss_history,
@@ -198,13 +215,40 @@ class Solver:
                 self.precision_metric(outputs, labels)
                 self.recall_metric(outputs, labels)
             
-            test_accuracy = self.accuracy_metric.compute().item()
-            test_recall = self.recall_metric.compute().item()
-            test_precision = self.precision_metric.compute().item()
-        self.model.train()
-        return {
-            "accuracy":test_accuracy,
-            "precision":test_precision,
-            "recall":test_recall
-        }
+        
+        # Calculate local metrics
+        local_accuracy = self.accuracy_metric.compute()
+        local_precision = self.precision_metric.compute()
+        local_recall = self.precision_metric.compute()
+
+        if self.distr:
+            # Convert metrics to tensors and aggregate across all processes
+            local_accuracy = torch.tensor(local_accuracy).to(self.device)
+            local_precision = torch.tensor(local_precision).to(self.device)
+            local_recall = torch.tensor(local_recall).to(self.device)
+
+            # Use all_reduce to sum metrics across all processes
+            torch.distributed.all_reduce(local_accuracy, op=torch.distributed.ReduceOp.SUM)
+            torch.distributed.all_reduce(local_precision, op=torch.distributed.ReduceOp.SUM)
+            torch.distributed.all_reduce(local_recall, op=torch.distributed.ReduceOp.SUM)
+
+            # Calculate global metrics
+            global_accuracy = local_accuracy / self.world_size
+            global_precision = local_precision / self.world_size
+            global_recall = local_recall / self.world_size
+
+            # Return metrics from the main process
+            if self.rank == 0:
+                return {
+                    "accuracy": global_accuracy.item(),
+                    "precision": global_precision.item(),
+                    "recall": global_recall.item()
+                }
+        else:
+            # Non-distributed case, return local metrics directly
+            return {
+                "accuracy": local_accuracy.item(),
+                "precision": local_precision.item(),
+                "recall": local_recall.item()
+            }
 

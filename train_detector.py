@@ -8,10 +8,24 @@ from torchvision.transforms import transforms
 from webcam_capturing.DetectorDatasetLoader import GestureDataset
 from solver.solver import Solver
 from webcam_capturing.ResNetL import resnetl10
+import os
+import torch.distributed as dist
 
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
-def main(path_frames, path_annotations_train, path_annotations_test, path_to_save):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def cleanup():
+    dist.destroy_process_group()
+
+def main(rank, path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, world_size):
+    
+    if distr:
+        setup(rank, world_size)
+        device = rank # torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
     
     transform = transforms.Compose([
     transforms.ToTensor()
@@ -36,13 +50,22 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
                     device, 
                     batch_size=32, 
                     cnn_trans=False, 
-                    detector=True)
+                    detector=True,
+                    save_every=5,
+                    path_to_save=path_to_save)
     results = solver.train(20)
 
-    solver.save(path_to_save)
+    if distr:
+        if rank == 0:  # Save model and results in the main process
+            solver.save(path_to_save)
+            with open("detector.json", "w") as f:
+                json.dump(results, f)
 
-    with open("detector.json", "w") as f:
-        json.dump(results, f)
+        cleanup()
+    else:
+        solver.save(path_to_save)
+        with open("detector.json", "w") as f:
+            json.dump(results, f)
 
 
 if __name__ == "__main__":
@@ -53,4 +76,18 @@ if __name__ == "__main__":
     path_annotations_train = sys.argv[2]
     path_annotations_test = sys.argv[3]
     path_to_save = sys.argv[4]
-    main(path_frames, path_annotations_train, path_annotations_test, path_to_save)
+    distr = True
+    if distr:
+        world_size = torch.cuda.device_count()
+        torch.multiprocessing.spawn(main, 
+                                    args=(path_frames, 
+                                        path_annotations_train, 
+                                        path_annotations_test, 
+                                        path_to_save,
+                                        distr,
+                                        world_size), 
+                                    nprocs=world_size, 
+                                    join=True)
+    else:
+        main(None, path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, world_size=None)
+   

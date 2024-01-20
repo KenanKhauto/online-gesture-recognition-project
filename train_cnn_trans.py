@@ -50,9 +50,12 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     scheduler, 
                     device,
                     world_size, 
-                    batch_size=16, 
+                    batch_size=64, 
                     cnn_trans=True, 
-                    distr=distr)
+                    distr=distr,
+                    detector=False,
+                    save_every=5,
+                    path_to_save=path_to_save)
     results = solver.train(20)
 
     if distr:

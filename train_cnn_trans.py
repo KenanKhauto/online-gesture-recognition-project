@@ -50,7 +50,7 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     scheduler, 
                     device,
                     world_size, 
-                    batch_size=64, 
+                    batch_size=32, 
                     cnn_trans=True, 
                     distr=distr,
                     detector=False,

@@ -27,8 +27,8 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
 
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, batch_size=8, cnn_trans=False)
-    results = solver.train(20)
+    solver = Solver(model, ds_train, ds_test, criterion, optimizer, scheduler, device, batch_size=16, cnn_trans=False)
+    results = solver.train(25)
 
     solver.save(path_to_save)
 

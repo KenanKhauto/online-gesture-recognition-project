@@ -1,6 +1,8 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import json
-import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,21 +27,21 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     solver = Solver(model, 
                     ds_train, 
                     ds_test, 
                     criterion, 
                     optimizer, 
-                    scheduler, 
+                    None, 
                     device, 
-                    batch_size=16,
+                    batch_size=2,
                     cnn_trans=False,
                     detector=False,
                     save_every=5,
                     path_to_save=path_to_save)
-    results = solver.train(30)
+    results = solver.train(40)
 
     solver.save(path_to_save)
 

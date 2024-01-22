@@ -21,4 +21,4 @@ conda activate /scratch/vihps/vihps14/env/
 
 cd ~/project/online-gesture-recognition-project/
 
-srun python run_3dresnet.py
+srun python ./run/run_3dresnet.py

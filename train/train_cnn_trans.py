@@ -1,8 +1,9 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import json
-import sys
 import torch
-import os
 import torch.nn as nn
 import torch.optim as optim
 from torchvision.transforms import transforms
@@ -35,7 +36,7 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=60)
     ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=60)
 
-    model = get_resnet_transformer(64, 16, 64, 4)
+    model = get_resnet_transformer(128, 32, 64, 16)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -50,13 +51,13 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     scheduler, 
                     device,
                     world_size, 
-                    batch_size=16, 
+                    batch_size=2, 
                     cnn_trans=True, 
                     distr=distr,
                     detector=False,
                     save_every=5,
                     path_to_save=path_to_save)
-    results = solver.train(20)
+    results = solver.train(35)
 
     if distr:
         if rank == 0:  # Save model and results in the main process

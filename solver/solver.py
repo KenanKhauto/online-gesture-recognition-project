@@ -37,7 +37,7 @@ class Solver:
         num_classes = 14
         if detector:
             num_classes = 2
-        train_size = int(0.8 * len(train_set))
+        train_size = int(0.9 * len(train_set))
         val_size = len(train_set) - train_size
 
         self.train_set, self.val_set = random_split(train_set, [train_size, val_size])

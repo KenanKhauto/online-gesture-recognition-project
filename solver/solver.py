@@ -56,7 +56,10 @@ class Solver:
 
         self.cnn_trans = cnn_trans
 
-        self.scheduler = scheduler
+        if scheduler:
+            self.scheduler = scheduler
+        else:
+            self.scheduler = None
 
         self.accuracy_metric = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes).to(self.device)
         self.precision_metric = torchmetrics.Precision(task="multiclass", num_classes=num_classes).to(self.device)
@@ -162,7 +165,8 @@ class Solver:
                 best_val_accracy = results_val["accuracy"]
                 best_param = self.model.state_dict().copy()
 
-            self.scheduler.step()
+            if self.scheduler:
+                self.scheduler.step()
             self.model.load_state_dict(best_param)
 
             if self.distr:

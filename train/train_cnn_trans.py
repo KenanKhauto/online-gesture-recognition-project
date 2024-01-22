@@ -41,14 +41,14 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     solver = Solver(model, 
                     ds_train, 
                     ds_test, 
                     criterion, 
                     optimizer, 
-                    scheduler, 
+                    None, 
                     device,
                     world_size, 
                     batch_size=2, 
@@ -57,7 +57,7 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     detector=False,
                     save_every=5,
                     path_to_save=path_to_save)
-    results = solver.train(35)
+    results = solver.train(40)
 
     if distr:
         if rank == 0:  # Save model and results in the main process

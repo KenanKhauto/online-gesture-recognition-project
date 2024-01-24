@@ -97,7 +97,7 @@ class WebcamCapture:
                 if time.time() - last_time >= 1:
                     frames_to_process = frames[-self.frame_count :]
                     frames_tensor = torch.tensor(np.array(frames_to_process))
-                    print("Tensor shape:", frames_tensor.shape)
+                    # print("Tensor shape:", frames_tensor.shape)
                     last_time = time.time()
 
                     if save_test_frames:

@@ -1,3 +1,5 @@
+import time
+import datetime
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
@@ -22,6 +24,9 @@ class Solver(_Solver):
         cnn_trans = False,
         distr = False,
         detector = False,
+        save_every = None,
+        path_to_save = None,
+        num_classes = None,
         activation=F.relu,
         consider_uncertainty_for_best_model_val_accuracy: bool=True
     ):
@@ -54,6 +59,9 @@ class Solver(_Solver):
             cnn_trans=cnn_trans,
             distr=distr,
             detector=detector,
+            save_every=save_every,
+            path_to_save=path_to_save,
+            num_classes=num_classes,
         )
         self.activation = activation
 
@@ -80,7 +88,7 @@ class Solver(_Solver):
         """
         self.model.train()
         self.model.to(self.device)
-        best_val_accracy = 0
+        best_val_accracy = -1
         best_param = None
 
         if self.distr:
@@ -90,11 +98,14 @@ class Solver(_Solver):
             train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True)
         
         for epoch in range(num_epochs):
+            start = time.time()
             if self.distr:
                 if self.world_size > 1:
                     self.train_sampler.set_epoch(epoch)
             
             loss_history = []
+
+            total_batches = len(train_loader)
 
             for i, data in enumerate(train_loader):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
@@ -115,11 +126,36 @@ class Solver(_Solver):
 
                 loss_history.append(loss.item())
 
+                if i % (total_batches//4) == 0:
+                    elapsed = int(time.time() - start)
+                    elapsed = str(datetime.timedelta(seconds=elapsed))
+                    print(f"Epoch {epoch + 1}/{num_epochs} | Batch {i+1}/{total_batches} | Batch Loss {loss.item():.2f} | Elapsed Time for Epoch {elapsed}")
+
             epoch_loss = sum(loss_history) / i
             self.loss_history.append(epoch_loss)
 
+            elapsed = int(time.time() - start)
+            elapsed = str(datetime.timedelta(seconds=elapsed))
+            print(f"Epoch {epoch + 1}/{num_epochs} | Loss {epoch_loss:.2f} | Elapsed Time for Training {elapsed}")
+            print()
+
+            start = time.time()
+            print("Calculating Train Accuracy")
             results_train = self.test(self.train_set, num_samples=1000)
+
+            elapsed = int(time.time() - start)
+            elapsed = str(datetime.timedelta(seconds=elapsed))
+            print(f"Train AccU {100*results_train['accuracy_considering_uncertainty']:.2f} | Train Acc {100*results_train['accuracy']:.2f} | Elapsed Time {elapsed}")
+            print()
+
+            start = time.time()
+            print("Calculating Val Accuracy")
             results_val = self.test(self.val_set, num_samples=1000)
+
+            elapsed = int(time.time() - start)
+            elapsed = str(datetime.timedelta(seconds=elapsed))
+            print(f"Val AccU {100*results_val['accuracy_considering_uncertainty']:.2f} | Val Acc {100*results_val['accuracy']:.2f} | Elapsed Time {elapsed}")
+            print()
 
             self.train_accuracy.append(results_train["accuracy"])
             self.train_precision.append(results_train["precision"])
@@ -136,10 +172,13 @@ class Solver(_Solver):
             self.val_rejected_corrects.append(results_val["rejected_corrects_share"])
 
             if results_val[self.best_model_metric] > best_val_accracy:
+                print(f"Saving model {results_val[self.best_model_metric]:.2f} > {best_val_accracy:.2f}")
+                print()
                 best_val_accracy = results_val[self.best_model_metric]
                 best_param = self.model.state_dict().copy()
 
-        self.scheduler.step()
+            self.scheduler.step()
+
         self.model.load_state_dict(best_param)
 
         return {
@@ -173,9 +212,10 @@ class Solver(_Solver):
             dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
 
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
+        total_batches = len(loader)
 
         with torch.no_grad():
-            for data in loader:
+            for i, data in enumerate(loader):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
 
                 if not self.cnn_trans:
@@ -190,6 +230,9 @@ class Solver(_Solver):
                 self.recall_metric(probs, labels)
                 self.accuracy_metric_considering_uncertainty(evidence, labels)
                 self.rejected_corrects_metric(evidence, labels)
+
+                if i % (total_batches//2) == 0:
+                    print(f"Batch {i+1}/{total_batches}")
             
             test_accuracy = self.accuracy_metric.compute().item()
             test_recall = self.recall_metric.compute().item()

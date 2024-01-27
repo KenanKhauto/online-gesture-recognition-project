@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision.transforms import transforms
-from webcam_capturing.DetectorDatasetLoader import GestureDataset
+from dataset.loader import GestureDataset
 from solver.solver import Solver
 from webcam_capturing.ResNetL import resnetl10
 import os
@@ -31,12 +31,26 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     transforms.ToTensor()
     ])
 
-    ds_train = GestureDataset(path_frames, path_annotations_train, transform, sample_duration=60)
-    ds_test = GestureDataset(path_frames, path_annotations_test, transform, sample_duration=60)
+    ds_train = GestureDataset(path_frames, 
+                              path_annotations_train, 
+                              transform, 
+                              sample_duration=60, 
+                              label_all_gestures=True)
+    
+    ds_test = GestureDataset(path_frames, 
+                             path_annotations_test, 
+                             transform, 
+                             sample_duration=60, 
+                             label_all_gestures=True)
 
     model = resnetl10(num_classes = 2, sample_size = 128, sample_duration=60)
 
-    criterion = nn.CrossEntropyLoss()
+    n_gesture = 3117
+    n_no_gesture = 4039 - 3117
+    weight = n_gesture / n_no_gesture
+
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight]))
+
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
@@ -53,7 +67,7 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     detector=True,
                     save_every=5,
                     path_to_save=path_to_save)
-    results = solver.train(20)
+    results = solver.train(60)
 
     if distr:
         if rank == 0:  # Save model and results in the main process
@@ -89,5 +103,10 @@ if __name__ == "__main__":
                                     nprocs=world_size, 
                                     join=True)
     else:
-        main(None, path_frames, path_annotations_train, path_annotations_test, path_to_save, distr, world_size=None)
+        main(None, 
+             path_frames, 
+             path_annotations_train, 
+             path_annotations_test, 
+             path_to_save, distr, 
+             world_size=None)
    

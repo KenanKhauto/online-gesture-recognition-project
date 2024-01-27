@@ -21,3 +21,12 @@ Disadvantages:
 Background Noise: The model might get confused by irrelevant background details, especially in diverse environments.
 Higher Computational Cost: Larger image sizes result in more data to process, which can increase computational requirements.
 Potential for Overfitting: The model might overfit to specific backgrounds or environments present in the training data.
+
+
+
+
+
+
+we have 4039 Clips
+
+3117 clips are gestures

@@ -96,6 +96,8 @@ class Solver:
         else:
             self.save_every = None
 
+        self.detector = detector
+
     def save(self, file_path):
         """
         Save the model state.
@@ -144,6 +146,13 @@ class Solver:
                     inputs = inputs.permute(0, 2, 1, 3, 4)
 
                 outputs = self.model(inputs)
+
+                if self.detector:
+                    outputs = outputs[:, 1] # Now shape [N]
+
+                    # Making sure labels are also in the correct shape [N]
+                    labels = labels.view(-1).float()
+                
                 loss = self.criterion(outputs, labels)
                 loss.backward()
 

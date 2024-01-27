@@ -48,8 +48,8 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     n_gesture = 3117
     n_no_gesture = 4039 - 3117
     weight = n_gesture / n_no_gesture
-
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight]))
+    weight = torch.tensor([weight]).to(device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=weight)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 

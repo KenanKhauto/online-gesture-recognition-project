@@ -65,9 +65,10 @@ class GestureDataset(Dataset):
                 
                 if self.label_all_gestures:
                     labels.append((folder_name, int(start), int(end), label, int(id), int(number_frames)))
-
-                if not self.include_no_gesture:
+                elif not self.include_no_gesture:
                     labels.append((folder_name, int(start), int(end), label, int(id) - 2, int(number_frames)))
+                else:
+                    labels.append((folder_name, int(start), int(end), label, int(id) - 1, int(number_frames)))
         return labels
 
     def _write_labels(self, path):

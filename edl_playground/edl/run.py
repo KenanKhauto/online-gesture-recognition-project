@@ -34,9 +34,9 @@ def run(epochs, scheduler, display_stats_plot, model, device, train_loader, test
         epoch_test_metrics = test(model, device, test_loader, uncertainty_thresh, pbar.set_description)
 
         if consider_thresh_for_best_model:
-            model_score = epoch_test_metrics["acc_with_thresh"]
+            model_score = epoch_test_metrics["AccU"]
         else:
-            model_score = epoch_test_metrics["acc"]
+            model_score = epoch_test_metrics["Acc"]
 
         if best_model_score is None:
             pbar.set_description('Epoch: {} \tVal acc {:.2f}% \t Saving model...'.format(

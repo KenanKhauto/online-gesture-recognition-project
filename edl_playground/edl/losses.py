@@ -268,7 +268,7 @@ def get_belief_probs_and_uncertainty(evidence, num_classes):
     return belief, probs, uncertainty
 
 
-def get_correct_preds(evidence, target, uncertainty_thresh: float, keep_as_tensor: bool=False) -> int:
+def get_uncertainty_matrix(evidence, target, uncertainty_thresh: float, keep_as_tensor: bool=False) -> int:
     """ Calculates the number of correct predictions based on https://arxiv.org/abs/1806.01768
 
     Args:
@@ -288,9 +288,38 @@ def get_correct_preds(evidence, target, uncertainty_thresh: float, keep_as_tenso
     certain_pred = uncertainty[:, None] <= uncertainty_thresh # (N) > (N, 1)
     pred = probs.argmax(dim=1, keepdim=True) # (N, 1)
     correctly_classified = pred.eq(target.view_as(pred))
-    correct = (correctly_classified & certain_pred).sum()
-    rejected_corrects = (correctly_classified & ~certain_pred).sum()
-    correctly_classified = correctly_classified.sum()
+
+    ac = (correctly_classified & certain_pred).sum()
+    au = (correctly_classified & ~certain_pred).sum()
+    ic = (~correctly_classified & certain_pred).sum()
+    iu = (~correctly_classified & ~certain_pred).sum()
+
     if not keep_as_tensor:
-        correct, rejected_corrects, correctly_classified = correct.item(), rejected_corrects.item(), correctly_classified.item()
-    return correct, rejected_corrects, correctly_classified
+        ac, au, ic, iu = [x.item() for x in [ac, au, ic, iu]]
+    return ac, au, ic, iu
+
+
+def AvU(ac, au, ic, iu):
+    return (ac+iu) / (ac+iu+ic+au)
+
+def Acc(ac, au, ic, iu):
+    return (ac+au) / (ac+iu+ic+au)
+
+def AccU(ac, au, ic, iu):
+    return ac / (ac+iu+ic+au)
+
+def SRC(ac, au, ic, iu):
+    """Share of rejected corrects"""
+    return au / (ac+iu+ic+au)
+
+SCORES = [AvU, AccU, Acc, SRC]
+
+
+def get_uncertainties_for_correct_and_incorrect(evidence: Tensor, target: Tensor):
+    K = evidence.shape[1]
+    belief, probs, uncertainty = get_belief_probs_and_uncertainty(evidence, K)
+    pred = probs.argmax(dim=1) # (N)
+    correct = pred.eq(target)
+    uncertainties_correct = uncertainty[correct]
+    uncertainties_incorrect = uncertainty[~correct]
+    return uncertainties_correct, uncertainties_incorrect

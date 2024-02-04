@@ -1,12 +1,21 @@
 import time
 import datetime
+from typing import List, Dict
+
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 from torch.utils.data.distributed import DistributedSampler
 
 from .solver import Solver as _Solver
-from edl_playground.edl.metrics import AccuracyConsideringUncertaintyThresh, RejectedCorrectsConsideringUncertaintyTresh, get_probs
+from edl_playground.edl.metrics import UncertaintyMatrix, get_probs
+from edl_playground.edl.distribution import ModelUncertaintyDistribution
+from edl_playground.edl.losses import SCORES
+
+
+def _LD_to_DL(LD: List[dict]) -> Dict[str, list]:
+    return {k: [d[k] for d in LD] for k in LD[0]}
+
 
 class Solver(_Solver):
     def __init__(
@@ -28,7 +37,8 @@ class Solver(_Solver):
         path_to_save = None,
         num_classes = None,
         activation=F.relu,
-        consider_uncertainty_for_best_model_val_accuracy: bool=True
+        best_model_metric: str="Val_AccU",
+        uncertainty_distribution: bool=False,
     ):
         """
         Initialize the Solver with the required components.
@@ -63,21 +73,23 @@ class Solver(_Solver):
             path_to_save=path_to_save,
             num_classes=num_classes,
         )
+        self.uncertainty_thresh = uncertainty_thresh
         self.activation = activation
+        self.uncertainty_distribution = uncertainty_distribution
 
-        self.accuracy_metric_considering_uncertainty = AccuracyConsideringUncertaintyThresh(uncertainty_thresh).to(self.device)
-        self.rejected_corrects_metric = RejectedCorrectsConsideringUncertaintyTresh(uncertainty_thresh).to(self.device)
+        self.mtx = UncertaintyMatrix(uncertainty_thresh)
+        if self.uncertainty_distribution:
+            self.distribution = ModelUncertaintyDistribution().to(self.device)
 
-        self.train_accuracy_considering_uncertainty = []
-        self.train_rejected_corrects = []
+        self.best_model_metric = best_model_metric
 
-        self.val_accuracy_considering_uncertainty = []
-        self.val_rejected_corrects = []
+        self.metrics = {
+            "accuracy": self.accuracy_metric,
+            "precision": self.precision_metric,
+            "recall": self.recall_metric
+        }
 
-        if consider_uncertainty_for_best_model_val_accuracy:
-            self.best_model_metric = "accuracy_considering_uncertainty"
-        else:
-            self.best_model_metric = "accuracy"
+        self.results = []
 
     def train(self, num_epochs):
         """
@@ -88,7 +100,7 @@ class Solver(_Solver):
         """
         self.model.train()
         self.model.to(self.device)
-        best_val_accracy = -1
+        best_model_score = -1
         best_param = None
 
         if self.distr:
@@ -132,7 +144,6 @@ class Solver(_Solver):
                     print(f"Epoch {epoch + 1}/{num_epochs} | Batch {i+1}/{total_batches} | Batch Loss {loss.item():.2f} | Elapsed Time for Epoch {elapsed}")
 
             epoch_loss = sum(loss_history) / i
-            self.loss_history.append(epoch_loss)
 
             elapsed = int(time.time() - start)
             elapsed = str(datetime.timedelta(seconds=elapsed))
@@ -142,58 +153,35 @@ class Solver(_Solver):
             start = time.time()
             print("Calculating Train Accuracy")
             results_train = self.test(self.train_set, num_samples=1000)
+            metrics = {f"Train_{metric}": v for metric, v in results_train.items()}
+            metrics["loss"] = epoch_loss
 
             elapsed = int(time.time() - start)
             elapsed = str(datetime.timedelta(seconds=elapsed))
-            print(f"Train AccU {100*results_train['accuracy_considering_uncertainty']:.2f} | Train Acc {100*results_train['accuracy']:.2f} | Elapsed Time {elapsed}")
+            print(f"Train AvU {100*results_train['AvU']:.2f} | Train AccU {100*results_train['AccU']:.2f} | Train Acc {100*results_train['Acc']:.2f} | Elapsed Time {elapsed}")
             print()
 
             start = time.time()
             print("Calculating Val Accuracy")
             results_val = self.test(self.val_set, num_samples=1000)
+            metrics = dict(metrics, **{f"Val_{metric}": v for metric, v in results_val.items()})
+            self.results.append(metrics)
 
             elapsed = int(time.time() - start)
             elapsed = str(datetime.timedelta(seconds=elapsed))
-            print(f"Val AccU {100*results_val['accuracy_considering_uncertainty']:.2f} | Val Acc {100*results_val['accuracy']:.2f} | Elapsed Time {elapsed}")
+            print(f"Val AvU {100*results_val['AvU']:.2f} | Val AccU {100*results_val['AccU']:.2f} | Val Acc {100*results_val['Acc']:.2f} | Elapsed Time {elapsed}")
             print()
 
-            self.train_accuracy.append(results_train["accuracy"])
-            self.train_precision.append(results_train["precision"])
-            self.train_recall.append(results_train["recall"])
-
-            self.val_accuracy.append(results_val["accuracy"])
-            self.val_precision.append(results_val["precision"])
-            self.val_recall.append(results_val["recall"])
-
-            self.train_accuracy_considering_uncertainty.append(results_train["accuracy_considering_uncertainty"])
-            self.train_rejected_corrects.append(results_train["rejected_corrects_share"])
-
-            self.val_accuracy_considering_uncertainty.append(results_val["accuracy_considering_uncertainty"])
-            self.val_rejected_corrects.append(results_val["rejected_corrects_share"])
-
-            if results_val[self.best_model_metric] > best_val_accracy:
-                print(f"Saving model {results_val[self.best_model_metric]:.2f} > {best_val_accracy:.2f}")
+            if metrics[self.best_model_metric] > best_model_score:
+                print(f"Saving model {metrics[self.best_model_metric]:.2f} > {best_model_score:.2f}")
                 print()
-                best_val_accracy = results_val[self.best_model_metric]
+                best_model_score = metrics[self.best_model_metric]
                 best_param = self.model.state_dict().copy()
 
             self.scheduler.step()
 
         self.model.load_state_dict(best_param)
-
-        return {
-            "loss":self.loss_history,
-            "train_accuracy":self.train_accuracy,
-            "train_accuracy_considering_uncertainty":self.train_accuracy_considering_uncertainty,
-            "train_rejected_corrects_share":self.train_rejected_corrects,
-            "train_precision":self.train_precision,
-            "train_recall":self.train_recall,
-            "val_accuracy":self.val_accuracy,
-            "val_accuracy_considering_uncertainty":self.val_accuracy_considering_uncertainty,
-            "val_rejected_corrects_share":self.val_rejected_corrects,
-            "val_precision":self.val_precision,
-            "val_recall":self.val_recall,  
-        }
+        return _LD_to_DL(self.results)
     
 
     def test(self, dataset, num_samples=None):
@@ -205,8 +193,12 @@ class Solver(_Solver):
         self.accuracy_metric.reset()
         self.precision_metric.reset()
         self.recall_metric.reset()
+        self.mtx.reset()
+        if self.uncertainty_distribution:
+            self.distribution.reset()
 
         dataset_size = len(dataset)
+        metrics = {}
 
         if num_samples and num_samples < dataset_size:
             dataset, _ = random_split(dataset, [num_samples, dataset_size - num_samples])
@@ -225,25 +217,29 @@ class Solver(_Solver):
                 evidence = self.activation(outputs)
                 probs = get_probs(evidence)
 
-                self.accuracy_metric(probs, labels)
-                self.precision_metric(probs, labels)
-                self.recall_metric(probs, labels)
-                self.accuracy_metric_considering_uncertainty(evidence, labels)
-                self.rejected_corrects_metric(evidence, labels)
+                for metric in self.metrics.values():
+                    metric(probs, labels)
+
+                self.mtx(evidence, labels)
+                if self.uncertainty_distribution:
+                    self.distribution(evidence, labels)
 
                 if i % (total_batches//2) == 0:
                     print(f"Batch {i+1}/{total_batches}")
+
+            for name, metric in self.metrics.items():
+                metrics[name] = metric.compute().item()
             
-            test_accuracy = self.accuracy_metric.compute().item()
-            test_recall = self.recall_metric.compute().item()
-            test_precision = self.precision_metric.compute().item()
-            test_accuracy_considering_uncertainty = self.accuracy_metric_considering_uncertainty.compute().item()
-            test_rejected_corrects = self.rejected_corrects_metric.compute().item()
+            metrics["uncertainty_matrix"] = self.mtx.compute()
+
+            for score_fn in SCORES:
+                metrics[score_fn.__name__] = score_fn(*metrics["uncertainty_matrix"])
+
+            if self.uncertainty_distribution:
+                correct, incorrect = [x.cpu().numpy() for x in self.distribution.compute()]
+                metrics["correct"] = correct
+                metrics["incorrect"] = incorrect
+
         self.model.train()
-        return {
-            "accuracy":test_accuracy,
-            "accuracy_considering_uncertainty":test_accuracy_considering_uncertainty,
-            "rejected_corrects_share":test_rejected_corrects,
-            "precision":test_precision,
-            "recall":test_recall
-        }
+
+        return metrics

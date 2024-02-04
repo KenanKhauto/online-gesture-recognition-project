@@ -16,7 +16,7 @@ from .losses import (
     KL_Divergence_RegularizationLoss,
     LinearAnnealingFactor,
     get_belief_probs_and_uncertainty,
-    get_correct_preds,
+    get_uncertainty_matrix,
 )
 
 class Test_EDL_Loss(unittest.TestCase):
@@ -224,7 +224,7 @@ class Test_EDL_Loss(unittest.TestCase):
         assert_close(probs, probs_target)
         assert_close(uncertainty, uncertainty_target)
 
-    def test_get_correct_preds(self):
+    def test_get_uncertainty_matrix(self):
         self.test_get_belief_probs_and_uncertainty()
         alpha = torch.tensor([[41, 1], [2, 3]])
 
@@ -245,111 +245,111 @@ class Test_EDL_Loss(unittest.TestCase):
         target = torch.tensor([1, 0])
         uncertainty_thresh = 0.6
 
-        correct_target = 0
-        rejected_corrects_target = 0
+        ac_target = 0
+        au_target = 0
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         target = torch.tensor([1, 1])
         uncertainty_thresh = 1/5
 
-        correct_target = 0
-        rejected_corrects_target = 1
+        ac_target = 0
+        au_target = 1
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 2/5
 
-        correct_target = 1
-        rejected_corrects_target = 0
+        ac_target = 1
+        au_target = 0
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 3/5
 
-        correct_target = 1
-        rejected_corrects_target = 0
+        ac_target = 1
+        au_target = 0
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         target = torch.tensor([0, 1])
         uncertainty_thresh = 1/42
 
-        correct_target = 0
-        rejected_corrects_target = 2
+        ac_target = 0
+        au_target = 2
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 2/42
 
-        correct_target = 1
-        rejected_corrects_target = 1
+        ac_target = 1
+        au_target = 1
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 1/5
 
-        correct_target = 1
-        rejected_corrects_target = 1
+        ac_target = 1
+        au_target = 1
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 2/5
 
-        correct_target = 2
-        rejected_corrects_target = 0
+        ac_target = 2
+        au_target = 0
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
         #####################################################
 
         uncertainty_thresh = 3/5
 
-        correct_target = 2
-        rejected_corrects_target = 0
+        ac_target = 2
+        au_target = 0
 
-        correct, rejected_corrects, correctly_classified = get_correct_preds(evidence, target, uncertainty_thresh)
+        ac, au, _, _ = get_uncertainty_matrix(evidence, target, uncertainty_thresh)
 
-        self.assertEqual(correct, correct_target)
-        self.assertEqual(rejected_corrects, rejected_corrects_target)
+        self.assertEqual(ac, ac_target)
+        self.assertEqual(au, au_target)
 
 
 if __name__ == '__main__':

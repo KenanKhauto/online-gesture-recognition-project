@@ -54,7 +54,7 @@ class SelectFinalState(nn.Module):
         return x
 
 
-def get_mobilenet(num_classes):
+def get_mobilenet(num_classes, softmax=True):
     feature_model = timm.create_model('tf_mobilenetv3_small_100.in1k', pretrained=True)
 
     unfreeze_layers_depth_idx = [
@@ -67,14 +67,18 @@ def get_mobilenet(num_classes):
 
     unfreeze_layer(feature_model, unfreeze_layers_depth_idx)
 
-    model = nn.Sequential(
+    modules = [
         ApplyToSeq(feature_model),
         nn.GRU(1000, 256, batch_first=True),
         SelectFinalState(),
         nn.Linear(256, 64),
         nn.Dropout(),
         nn.Linear(64, num_classes),
-        nn.Softmax(dim=-1)
-    )
+    ]
+
+    if softmax:
+        modules.append(nn.Softmax(dim=-1))
+
+    model = nn.Sequential(*modules)
 
     return model

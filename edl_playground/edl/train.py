@@ -1,14 +1,12 @@
 import torch
 import torch.nn.functional as F
 
-from .losses import get_correct_preds
+from .losses import get_uncertainty_matrix, SCORES
 
 
 def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_thresh, log_interval, dry_run, print_fn=print):
     model.train()
-    total_correct_considering_thresh = 0
-    total_rejected_corrects = 0
-    total_correct = 0
+    mtx = torch.zeros(4)
     train_loss = 0
 
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -20,10 +18,7 @@ def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_
         evidence = F.relu(output)
         individual_loss = criterion(evidence, target, epoch)
 
-        correct_considering_thresh, rejected_corrects, correct = get_correct_preds(evidence, target, uncertainty_thresh)
-        total_correct_considering_thresh += correct_considering_thresh
-        total_rejected_corrects += rejected_corrects
-        total_correct += correct
+        mtx += torch.tensor(get_uncertainty_matrix(evidence, target, uncertainty_thresh))
 
         loss = torch.mean(individual_loss)
         loss.backward()
@@ -38,10 +33,8 @@ def train(model, device, train_loader, criterion, optimizer, epoch, uncertainty_
             if dry_run:
                 break
 
-    metrics = {
-        "acc_with_thresh": total_correct_considering_thresh / len(train_loader.dataset),
-        "acc": total_correct / len(train_loader.dataset),
-        "share_rejected_corrects": total_rejected_corrects / len(train_loader.dataset),
-        "loss": train_loss / len(train_loader.dataset)
-    }
+    metrics = {k: v for k, v in zip(["ac", "au", "ic", "iu"], mtx)}
+    metrics = {score_fn.__name__: score_fn(*mtx) for score_fn in SCORES}
+    metrics["loss"] = train_loss / len(train_loader.dataset)
+
     return metrics

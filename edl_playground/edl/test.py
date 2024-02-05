@@ -1,14 +1,12 @@
 import torch
 import torch.nn.functional as F
 
-from .losses import get_correct_preds
+from .losses import get_uncertainty_matrix, SCORES
 
 
 def test(model, device, test_loader, uncertainty_thresh, print_fn=print):
     model.eval()
-    total_correct_considering_thresh = 0
-    total_rejected_corrects = 0
-    total_correct = 0
+    mtx = torch.zeros(4)
 
     with torch.no_grad():
         for data, target in test_loader:
@@ -16,18 +14,15 @@ def test(model, device, test_loader, uncertainty_thresh, print_fn=print):
             output = model(data)
             
             evidence = F.relu(output)
-            correct_considering_thresh, rejected_corrects, correct = get_correct_preds(evidence, target, uncertainty_thresh)
-            total_correct_considering_thresh += correct_considering_thresh
-            total_rejected_corrects += rejected_corrects
-            total_correct += correct
+            mtx += torch.tensor(get_uncertainty_matrix(evidence, target, uncertainty_thresh))
 
-    metrics = {
-        "acc_with_thresh": total_correct_considering_thresh / len(test_loader.dataset),
-        "acc": total_correct / len(test_loader.dataset),
-        "share_rejected_corrects": total_rejected_corrects / len(test_loader.dataset)
-    }
+    metrics = {k: v for k, v in zip(["ac", "au", "ic", "iu"], mtx)}
+    metrics = {score_fn.__name__: score_fn(*mtx) for score_fn in SCORES}
+    metrics
 
-    print_fn('\nTest set: Accuracy (u <= {}): {}/{} ({:.2f}%)\n\tAccuracy (regardless of u): {}/{} ({:.2f}%)\n'.format(
-        uncertainty_thresh, total_correct_considering_thresh, len(test_loader.dataset), 100. * metrics["acc_with_thresh"],
-        total_correct, len(test_loader.dataset), 100. * metrics["acc"],))
+    correctly_classified = metrics["ac"] + metrics["au"]
+
+    print_fn('\nTest set: AccU (u <= {}): {}/{} ({:.2f}%)\n\tAcc: {}/{} ({:.2f}%)\n'.format(
+        uncertainty_thresh, metrics["ac"], len(test_loader.dataset), 100. * metrics["ac"] / len(test_loader.dataset),
+        correctly_classified, len(test_loader.dataset), 100. * correctly_classified / len(test_loader.dataset)))
     return metrics

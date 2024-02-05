@@ -3,60 +3,20 @@ from torch import Tensor
 from torchmetrics import Metric
 
 
-from .losses import get_correct_preds
+from .losses import get_uncertainty_matrix
 
 
-class Accuracy(Metric):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.add_state("correct", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
-
-    def update(self, evidence: Tensor, target: Tensor) -> None:
-        alpha = evidence + 1 # (N, K)
-        S = torch.sum(alpha, dim=1) # (N)
-        probs = alpha / S[:, None] # (N, K) / (N) = (N, K)
-    
-        pred = probs.argmax(dim=1, keepdim=True) # (N, 1)
-        correct = pred.eq(target.view_as(pred))
-
-        self.correct += correct
-        self.total += target.numel()
-
-    def compute(self) -> Tensor:
-        return self.correct.float() / self.total
-
-
-class AccuracyConsideringUncertaintyThresh(Metric):
+class UncertaintyMatrix(Metric):
     def __init__(self, uncertainty_thresh: float, **kwargs):
         super().__init__(**kwargs)
         self.uncertainty_thresh = uncertainty_thresh
-        self.add_state("correct_and_certain", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("mtx", default=torch.zeros(4), dist_reduce_fx="sum")
 
     def update(self, evidence: Tensor, target: Tensor) -> None:
-        correct_and_certain, rejected_corrects, correct = get_correct_preds(evidence, target, self.uncertainty_thresh)
-        self.correct_and_certain += correct_and_certain
-        self.total += target.numel()
+        self.mtx += torch.tensor(get_uncertainty_matrix(evidence, target, self.uncertainty_thresh), dtype=self.mtx.dtype, device=self.mtx.device)
 
     def compute(self) -> Tensor:
-        return self.correct_and_certain.float() / self.total
-
-
-class RejectedCorrectsConsideringUncertaintyTresh(Metric):
-    def __init__(self, uncertainty_thresh: float, **kwargs):
-        super().__init__(**kwargs)
-        self.uncertainty_thresh = uncertainty_thresh
-        self.add_state("rejected_corrects", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
-
-    def update(self, evidence: Tensor, target: Tensor) -> None:
-        correct_and_certain, rejected_corrects, correct = get_correct_preds(evidence, target, self.uncertainty_thresh)
-        self.rejected_corrects += rejected_corrects
-        self.total += target.numel()
-
-    def compute(self) -> Tensor:
-        return self.rejected_corrects.float() / self.total
+        return self.mtx
 
 
 def get_probs(evidence):

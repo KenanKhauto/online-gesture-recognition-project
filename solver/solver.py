@@ -201,8 +201,8 @@ class Solver:
                 if self.save_every and self.path_to_save and epoch % self.save_every == 0:
                     self.save(self.path_to_save)
 
-            
-
+        
+            print(f"Epoch: {epoch}\nTrain Acc: {results_train['accuracy']}\nTrain Pre: {results_train['precision']}\tTest Acc: {results_val['accuracy']}\nTest Pre {results_val['precision']}")
         return {
             "loss":self.loss_history,
             "train_accuracy":self.train_accuracy,
@@ -237,7 +237,7 @@ class Solver:
                 if self.use_lstm:
                     processed_batch = process_batch_for_landmarks(inputs, self.device)
                     landmarks = extract_landmarks_from_batch(processed_batch, self.hand_landmarks_detector, self.device)
-                    inputs = torch.tensor(landmarks).float()
+                    inputs = torch.tensor(landmarks).float().to(self.device)
 
                 # if not self.cnn_trans:
                 #     inputs = inputs.permute(0, 2, 1, 3, 4)

@@ -44,7 +44,7 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
                     optimizer, 
                     None, 
                     device, 
-                    batch_size=5,
+                    batch_size=32,
                     cnn_trans=False,
                     detector=False,
                     save_every=5,
@@ -56,6 +56,7 @@ def main(path_frames, path_annotations_train, path_annotations_test, path_to_sav
     results = solver.train(25)
 
     solver.save(path_to_save)
+
 
     with open("lstm_detector_results.json", "w") as f:
         json.dump(results, f)

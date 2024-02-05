@@ -28,7 +28,11 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
         device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
     
     transform = transforms.Compose([
-    transforms.ToTensor()
+                        transforms.Resize(256),              # Resize the image to 256x256 pixels
+                        transforms.CenterCrop(224),          # Crop the image to 224x224 pixels about the center
+                        transforms.ToTensor(),               # Convert the image to a PyTorch tensor
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406],  # Normalize the image
+                                            std=[0.229, 0.224, 0.225])
     ])
 
     ds_train = GestureDataset(path_frames, 
@@ -49,7 +53,7 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
     n_no_gesture = 4039 - 3117
     weight = n_gesture / n_no_gesture
     weight = torch.tensor([weight]).to(device)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=weight)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=weight*2)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -67,18 +71,18 @@ def main(rank, path_frames, path_annotations_train, path_annotations_test, path_
                     detector=True,
                     save_every=5,
                     path_to_save=path_to_save)
-    results = solver.train(60)
+    results = solver.train(15)
 
     if distr:
         if rank == 0:  # Save model and results in the main process
             solver.save(path_to_save)
-            with open("detector.json", "w") as f:
+            with open("detector__.json", "w") as f:
                 json.dump(results, f)
 
         cleanup()
     else:
         solver.save(path_to_save)
-        with open("detector.json", "w") as f:
+        with open("detector__.json", "w") as f:
             json.dump(results, f)
 
 

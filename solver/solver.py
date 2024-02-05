@@ -40,10 +40,7 @@ class Solver:
             if detector:
                 num_classes = 2
 
-        train_size = int(0.9 * len(train_set))
-        val_size = len(train_set) - train_size
-
-        self.train_set, self.val_set = random_split(train_set, [train_size, val_size])
+        self.train_set = train_set 
         self.test_set = test_set
 
         self.model = model.to(device)
@@ -164,7 +161,7 @@ class Solver:
             self.loss_history.append(epoch_loss)
 
             results_train = self.test(self.train_set, num_samples=1000)
-            results_val = self.test(self.val_set, num_samples=1000)
+            results_val = self.test(self.test_set, num_samples=1000)
 
             self.train_accuracy.append(results_train["accuracy"])
             self.train_precision.append(results_train["precision"])

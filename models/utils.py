@@ -49,7 +49,7 @@ def show_training(history):
 
 
 
-def process_video_for_landmarks(video_frames):
+def process_video_for_landmarks(video_frames, device):
     try:
         # Check if the input is a PyTorch tensor
         if not isinstance(video_frames, torch.Tensor):
@@ -67,7 +67,7 @@ def process_video_for_landmarks(video_frames):
         if (video_frames < 0).any() or (video_frames > 1).any():
             raise ValueError("Tensor values must be in the range [0, 1]")
         
-        video_frames = video_frames.permute(0, 2, 3, 1)
+        video_frames = video_frames.permute(0, 2, 3, 1).cpu()
         
         # Convert the tensor to a NumPy array and scale the values to uint8 [0, 255] range
         processed_video = (video_frames.numpy() * 255).astype(np.uint8)
@@ -78,13 +78,13 @@ def process_video_for_landmarks(video_frames):
         return None
 
 
-def process_batch_for_landmarks(batch):
+def process_batch_for_landmarks(batch, device):
     batch_size = batch.shape[0]
 
     # out shape: shape (batch, sequence, height, width, channels)
     out = np.zeros((batch.shape[0], batch.shape[1], batch.shape[3], batch.shape[4], batch.shape[2]), np.uint8)
     for vidx in range(batch_size):
-        vid = process_video_for_landmarks(batch[vidx])
+        vid = process_video_for_landmarks(batch[vidx], device)
         out[vidx] = vid
 
     return out
@@ -102,13 +102,12 @@ def process_image_for_landmarks(image):
 
 
 
-def extract_landmarks_from_batch(batch_videos, hands):
+def extract_landmarks_from_batch(batch_videos, hands, device):
     batch_size = batch_videos.shape[0]  # Number of videos in the batch
     num_frames = batch_videos.shape[1]  # Number of frames per video
 
     # Initialize an empty list to store landmarks for the entire batch
     batch_landmarks = []
-
     for video_idx in range(batch_size):
         video = batch_videos[video_idx]
 
@@ -132,3 +131,4 @@ def extract_landmarks_from_batch(batch_videos, hands):
         batch_landmarks.append(video_landmarks)
 
     return np.array(batch_landmarks).reshape(batch_size, num_frames, -1)
+

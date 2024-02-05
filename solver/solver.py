@@ -5,6 +5,7 @@ import torchmetrics
 from torch.utils.data import DataLoader, random_split
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from models.utils import extract_landmarks_from_batch, process_batch_for_landmarks
 
 class Solver:
     def __init__(self, 
@@ -22,7 +23,9 @@ class Solver:
                  detector = False,
                  save_every = None,
                  path_to_save = None,
-                 num_classes = None):
+                 num_classes = None,
+                 use_lstm = False,
+                 hand_marks_detector = None):
         """
         Initialize the Solver with the required components.
 
@@ -36,10 +39,9 @@ class Solver:
             device (torch.device): The device to run the model on.
         """
         if num_classes is None:
-            num_classes = 14
-            if detector:
-                num_classes = 2
-
+            raise ValueError("You have to give the number of classes")
+        
+        self.num_classes = num_classes
         self.train_set = train_set 
         self.test_set = test_set
 
@@ -95,6 +97,10 @@ class Solver:
 
         self.detector = detector
 
+        if use_lstm:
+            self.use_lstm = use_lstm
+            self.hand_landmarks_detector = hand_marks_detector
+
     def save(self, file_path):
         """
         Save the model state.
@@ -138,11 +144,18 @@ class Solver:
             loss_history = []
             for i, data in enumerate(train_loader):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
-                
-                if not self.cnn_trans:
-                    inputs = inputs.permute(0, 2, 1, 3, 4)
 
-                outputs = self.model(inputs)
+                if self.use_lstm:
+
+                    processed_batch = process_batch_for_landmarks(inputs, self.device)
+                    landmarks = extract_landmarks_from_batch(processed_batch, self.hand_landmarks_detector, self.device)
+                    inputs = torch.tensor(landmarks).float().to(self.device)
+
+                
+                # if not self.cnn_trans:
+                #     inputs = inputs.permute(0, 2, 1, 3, 4)
+
+                outputs = self.model(inputs).float()
 
                 if self.detector:
                     outputs = outputs[:, 1] # Now shape [N]
@@ -153,10 +166,11 @@ class Solver:
                 loss = self.criterion(outputs, labels)
                 loss.backward()
 
-                self.optimizer.step()
                 self.optimizer.zero_grad()
-
+                self.optimizer.step()
+                
                 loss_history.append(loss.item())
+
             epoch_loss = sum(loss_history) / i
             self.loss_history.append(epoch_loss)
 
@@ -220,9 +234,13 @@ class Solver:
         with torch.no_grad():
             for data in loader:
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
+                if self.use_lstm:
+                    processed_batch = process_batch_for_landmarks(inputs, self.device)
+                    landmarks = extract_landmarks_from_batch(processed_batch, self.hand_landmarks_detector, self.device)
+                    inputs = torch.tensor(landmarks).float()
 
-                if not self.cnn_trans:
-                    inputs = inputs.permute(0, 2, 1, 3, 4)
+                # if not self.cnn_trans:
+                #     inputs = inputs.permute(0, 2, 1, 3, 4)
                     
                 outputs = self.model(inputs)
                 self.accuracy_metric(outputs, labels)

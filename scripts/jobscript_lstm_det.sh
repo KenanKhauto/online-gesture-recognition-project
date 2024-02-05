@@ -21,4 +21,4 @@ conda activate /scratch/vihps/vihps14/env/
 
 cd ~/project/online-gesture-recognition-project/
 
-srun python ./run/run_detector.py
+srun python ./run/run_lstm_det.py

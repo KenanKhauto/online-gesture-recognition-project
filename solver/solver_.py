@@ -69,6 +69,7 @@ class Solver:
         self.accuracy_metric = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes).to(self.device)
         self.precision_metric = torchmetrics.Precision(task="multiclass", num_classes=num_classes).to(self.device)
         self.recall_metric = torchmetrics.Recall(task="multiclass", num_classes=num_classes).to(self.device)
+        self.confusion_matrix = torchmetrics.ConfusionMatrix(task="multiclass", num_classes=num_classes).to(self.device)
 
         self.criterion = criterion
         self.optim = optimizer
@@ -76,10 +77,12 @@ class Solver:
         self.train_accuracy = []
         self.train_precision = []
         self.train_recall = []
+        self.train_confusion_matrix = []
 
         self.val_accuracy = []
         self.val_precision = []
         self.val_recall = []
+        self.val_confusion_matrix = []
 
         self.loss_history = []
 
@@ -97,6 +100,8 @@ class Solver:
             raise ValueError(f"You are trying to save every {save_every} epochs but you have not specified a path")
         else:
             self.save_every = None
+
+        self.detector = detector
 
     def save(self, file_path):
         """
@@ -197,10 +202,12 @@ class Solver:
             self.train_accuracy.append(results_train["accuracy"])
             self.train_precision.append(results_train["precision"])
             self.train_recall.append(results_train["recall"])
+            self.train_confusion_matrix.append(results_train["confusion_matrix"])
 
             self.val_accuracy.append(results_val["accuracy"])
             self.val_precision.append(results_val["precision"])
             self.val_recall.append(results_val["recall"])
+            self.val_confusion_matrix.append(results_val["confusion_matrix"])
 
             if results_val["accuracy"] > best_val_accracy:
                 if not self.distr or self.rank == 0:
@@ -227,9 +234,11 @@ class Solver:
             "train_accuracy":self.train_accuracy,
             "train_precision":self.train_precision,
             "train_recall":self.train_recall,
+            "train_confusion_matrix":self.train_confusion_matrix,
             "val_accuracy":self.val_accuracy,
             "val_precision":self.val_precision,
             "val_recall":self.val_recall,  
+            "val_confusion_matrix":self.val_confusion_matrix,
         }
     
 
@@ -262,6 +271,7 @@ class Solver:
                 self.accuracy_metric(outputs, labels)
                 self.precision_metric(outputs, labels)
                 self.recall_metric(outputs, labels)
+                self.confusion_matrix(outputs, labels)
 
                 if i % (total_batches//2) == 0 and (not self.distr or self.rank == 0):
                     print(f"Batch {i+1}/{total_batches}")
@@ -270,6 +280,8 @@ class Solver:
         local_accuracy = self.accuracy_metric.compute()
         local_precision = self.precision_metric.compute()
         local_recall = self.precision_metric.compute()
+        local_confusion_matrix = self.confusion_matrix.compute()
+        self.confusion_matrix.reset()
         self.model.train()
 
         if self.distr:
@@ -277,29 +289,34 @@ class Solver:
             local_accuracy = torch.tensor(local_accuracy).to(self.device)
             local_precision = torch.tensor(local_precision).to(self.device)
             local_recall = torch.tensor(local_recall).to(self.device)
+            local_confusion_matrix = torch.tensor(local_confusion_matrix).to(self.device)
 
             # Use all_reduce to sum metrics across all processes
             torch.distributed.all_reduce(local_accuracy, op=torch.distributed.ReduceOp.SUM)
             torch.distributed.all_reduce(local_precision, op=torch.distributed.ReduceOp.SUM)
             torch.distributed.all_reduce(local_recall, op=torch.distributed.ReduceOp.SUM)
+            torch.distributed.all_reduce(local_confusion_matrix, op=torch.distributed.ReduceOp.SUM)
 
             # Calculate global metrics
             global_accuracy = local_accuracy / self.world_size
             global_precision = local_precision / self.world_size
             global_recall = local_recall / self.world_size
+            global_confusion_matrix = local_confusion_matrix / self.world_size
 
             # Return metrics from the main process
             if self.rank == 0:
                 return {
                     "accuracy": global_accuracy.item(),
                     "precision": global_precision.item(),
-                    "recall": global_recall.item()
+                    "recall": global_recall.item(),
+                    "confusion_matrix": global_confusion_matrix.cpu()
                 }
         else:
             # Non-distributed case, return local metrics directly
             return {
                 "accuracy": local_accuracy.item(),
                 "precision": local_precision.item(),
-                "recall": local_recall.item()
+                "recall": local_recall.item(),
+                "confusion_matrix": local_confusion_matrix.cpu()
             }
 

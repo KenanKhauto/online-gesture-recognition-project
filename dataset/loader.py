@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import h5py
 
+
 class GestureDataset(Dataset):
     def __init__(self, hdf5_path, 
                  label_file, 
@@ -136,7 +137,7 @@ class GestureDataset(Dataset):
                     frame_data = video_group[frame_dataset_name]
                     frame = np.array(frame_data)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frame = cv2.resize(frame, (128, 128))
+                    #frame = cv2.resize(frame, (128, 128))
                     frames.append(frame)
                     if len(frames) == self.sample_duration:
                         break
@@ -148,20 +149,43 @@ class GestureDataset(Dataset):
         return frames
 
 
+
 if __name__ == "__main__":
+    from torchvision import transforms
+    from tqdm import tqdm
     file = os.path.join("D:", "IPN_Hand","annotations-20231128T085307Z-001", "annotations", "Annot_TrainList.txt")
     # frame_folders = os.path.join(".", "IPN_Hand", "frames")
     hdf5_path = os.path.join("D:", "IPN_Hand", "hand_gestures.h5")
-    dataset = GestureDataset(hdf5_path, file, label_all_gestures=True)
-    # test_sample = dataset.get_labels()[0]
-    # frames = dataset.load_frames(test_sample[0], test_sample[1], test_sample[2])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor()
+        ]
+    )
+    dataset = GestureDataset(hdf5_path, file, label_all_gestures=True, transform=transform)
     print(len(dataset))
-    # frames_tensor = dataset[4][0]
-    # h = frames_tensor.shape[1]
-    # w = frames_tensor.shape[2]
+    #frames_tensor = dataset[4][0]
 
-    # # fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    # # out = cv2.VideoWriter("output.avi", fourcc, 20.0, (w, h))
+    sum_channels = np.zeros(3)  # For RGB channels
+    sum_squares_channels = np.zeros(3)
+    total_pixels = 0
+
+    for idx in tqdm(range(len(dataset)), desc="Computing mean and std"):
+        frames_tensor = dataset[idx][0]  # Tensor of shape (F, C, H, W)
+        
+        # Accumulate sums and sum of squares
+        sum_channels += torch.sum(frames_tensor, dim=[0, 2, 3]).numpy()
+        sum_squares_channels += torch.sum(frames_tensor ** 2, dim=[0, 2, 3]).numpy()
+        total_pixels += np.prod(frames_tensor.shape[1:]) * frames_tensor.shape[0]
+
+    # Compute mean and standard deviation
+    mean_channels = sum_channels / total_pixels
+    std_channels = np.sqrt(sum_squares_channels / total_pixels - mean_channels ** 2)
+
+    print(f"mean = {mean_channels}")
+    print(f"std = {std_channels}")
+
+    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    # out = cv2.VideoWriter("output.avi", fourcc, 20.0, (w, h))
     # print(frames_tensor.shape[0])
     # for i in range(frames_tensor.shape[0]):
     #     frame = frames_tensor[i]
